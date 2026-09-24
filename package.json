@@ -139,6 +139,7 @@
     },
     "publish": {
       "provider": "github",
+      "channel": "ac3",
       "owner": "ARST113",
       "repo": "lampa-desktop"
     }

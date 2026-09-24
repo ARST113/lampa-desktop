@@ -1,11 +1,11 @@
 {
   "name": "lampa-desktop",
   "productName": "Lampa",
-  "version": "1.6.0",
+  "version": "1.6.0-ac3.1",
   "description": "Десктопное приложение-клиент для Lampa",
   "repository": {
     "type": "git",
-    "url": "https://github.com/Kolovatoff/lampa-desktop"
+    "url": "https://github.com/ARST113/lampa-desktop"
   },
   "desktopName": "lampa-desktop",
   "main": "src/main.js",
@@ -19,7 +19,7 @@
     "dev": "electron . --dev",
     "build-linux": "electron-builder --linux --publish=never",
     "build-mac": "electron-builder --mac --publish=never",
-    "build-win": "electron-builder --win --publish=never",
+    "build-win": "electron-builder --win --x64 --publish=never",
     "lint": "yarn lint:eslint && yarn lint:prettier",
     "lint:eslint": "eslint .",
     "lint:prettier": "prettier . --check",
@@ -41,7 +41,7 @@
   "devDependencies": {
     "@eslint/js": "9.39.4",
     "commit-and-tag-version": "12.7.3",
-    "electron": "43.4.1",
+    "electron": "44.4.4",
     "electron-builder": "26.15.3",
     "eslint": "9.39.4",
     "eslint-config-prettier": "10.1.8",
@@ -54,6 +54,14 @@
   },
   "license": "MIT",
   "build": {
+    "electronVersion": "44.4.4",
+    "electronDist": ".cache/electron-ac3-eac3",
+    "files": [
+      "src/**/*",
+      "build/icon.svg",
+      "build/icon.png",
+      "build/icons/**/*"
+    ],
     "appId": "com.lampa.desktop",
     "productName": "Lampa",
     "artifactName": "lampa-${arch}-${version}.${ext}",
@@ -112,9 +120,7 @@
         {
           "target": "nsis",
           "arch": [
-            "x64",
-            "ia32",
-            "arm64"
+            "x64"
           ]
         }
       ],
@@ -133,7 +139,7 @@
     },
     "publish": {
       "provider": "github",
-      "owner": "Kolovatoff",
+      "owner": "ARST113",
       "repo": "lampa-desktop"
     }
   },

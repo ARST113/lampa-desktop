@@ -29,8 +29,7 @@ function setupAutoUpdater() {
   autoUpdater.on("update-downloaded", (info) => {
     console.log("Update downloaded:", info);
 
-    const repoUrl =
-      "https://github.com/Kolovatoff/lampa-desktop/releases/latest";
+    const repoUrl = "https://github.com/ARST113/lampa-desktop/releases";
 
     dialog
       .showMessageBox({

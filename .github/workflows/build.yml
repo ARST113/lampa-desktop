@@ -1,338 +1,107 @@
-name: Build and Release Linux, macOS, Windows builds
+name: Build Lampa Windows x64 AC3-EAC3
+
+on:
+  workflow_dispatch:
+    inputs:
+      publish_release:
+        description: Publish the verified installer to a GitHub prerelease
+        type: boolean
+        default: true
+  push:
+    tags:
+      - "v*-ac3.*"
 
 permissions:
   contents: write
 
-on:
-  push:
-    tags:
-      - "v*"
-  workflow_dispatch:
+concurrency:
+  group: lampa-windows-ac3-eac3
+  cancel-in-progress: false
 
 jobs:
-  build-linux:
-    runs-on: ubuntu-latest
-    outputs:
-      version: ${{ steps.get_version.outputs.version }}
-      changelog_body: ${{ steps.changelog.outputs.body }}
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v6
-        with:
-          node-version: "24"
-
-      - name: Install Yarn 4
-        run: |
-          corepack enable
-          corepack prepare yarn@4 --activate
-
-      - name: Install dependencies
-        run: yarn install --immutable
-
-      - name: Install system dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libfuse2 rpm
-
-      - name: Build linux packages
-        run: |
-          yarn run build-linux
-
-      - name: Extract version
-        id: get_version
-        run: |
-          if [[ "${{ github.ref }}" =~ ^refs/tags/v([0-9]+\.[0-9]+\.[0-9]+)$ ]]; then
-            echo "version=${BASH_REMATCH[1]}" >> $GITHUB_OUTPUT
-          else
-            echo "version=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Extract changelog for version
-        id: changelog
-        run: |
-          VERSION="${{ steps.get_version.outputs.version }}"
-          sed -n "/^## \\[${VERSION}\\]/,/^## /p" CHANGELOG.md | sed '$d' > changelog.txt
-          if [ ! -s changelog.txt ]; then
-            echo "No changelog entries found for version $VERSION"
-            echo "body=No changelog entries found for version $VERSION" >> $GITHUB_OUTPUT
-          else
-            echo "body<<EOF" >> $GITHUB_OUTPUT
-            cat changelog.txt >> $GITHUB_OUTPUT
-            echo "EOF" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Upload Linux Artifact
-        uses: actions/upload-artifact@v6
-        with:
-          name: lampa-linux
-          path: |
-            dist/*.AppImage
-            dist/*.deb
-            dist/*.rpm
-            dist/latest-linux.yml
-
-  build-macos:
-    runs-on: macos-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v6
-        with:
-          node-version: "24"
-
-      - name: Install Yarn 4
-        run: |
-          corepack enable
-          corepack prepare yarn@4 --activate
-
-      - name: Install dependencies
-        run: yarn install --immutable
-
-      - name: Build for macOS
-        run: |
-          yarn run build-mac
-
-      - name: Upload macOS Artifact
-        uses: actions/upload-artifact@v6
-        with:
-          name: lampa-macos
-          path: |
-            dist/*.dmg
-            dist/*.blockmap
-            dist/latest-mac.yml
-
   build-windows:
     runs-on: windows-latest
+    timeout-minutes: 45
+    env:
+      ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
     steps:
-      - name: Checkout code
+      - name: Checkout
         uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
 
       - name: Set up Node.js
         uses: actions/setup-node@v6
         with:
           node-version: "24"
 
-      - name: Install Yarn 4
+      - name: Install pinned Yarn
         run: |
           corepack enable
-          corepack prepare yarn@4 --activate
+          corepack prepare yarn@4.9.4 --activate
 
       - name: Install dependencies
         run: yarn install --immutable
 
-      - name: Build for Windows
-        run: |
-          yarn run build-win
+      - name: Check application JavaScript
+        run: yarn exec eslint src scripts/verify-electron.cjs
 
-      - name: Upload Windows Artifact
+      - name: Check changed file formatting
+        run: yarn exec prettier package.json scripts/verify-electron.cjs .github/workflows/build.yml src/modules/autoUpdater.js README.md --check
+
+      - name: Download and verify custom Electron
+        shell: pwsh
+        run: ./scripts/prepare-electron.ps1
+
+      - name: Package Windows x64 installer
+        run: yarn build-win
+
+      - name: Verify packaged runtime and installer
+        id: verify
+        shell: pwsh
+        run: |
+          node scripts/verify-electron.cjs dist/win-unpacked/Lampa.exe dist/win-unpacked/ffmpeg.dll
+          if ($LASTEXITCODE -ne 0) { throw 'Packaged runtime verification failed.' }
+          if (!(Test-Path -LiteralPath 'dist/win-unpacked/resources/app.asar')) { throw 'Missing packaged application.' }
+          $package = Get-Content package.json -Raw | ConvertFrom-Json
+          $tag = "v$($package.version)"
+          if ($env:GITHUB_REF_TYPE -eq 'tag' -and $env:GITHUB_REF_NAME -ne $tag) { throw 'Tag and package version differ.' }
+          $installer = Get-Item -LiteralPath "dist/lampa-x64-$($package.version).exe"
+          if ($installer.Length -lt 10MB) { throw 'Installer is unexpectedly small.' }
+          "tag=$tag" >> $env:GITHUB_OUTPUT
+          Get-ChildItem -Path dist/*.exe,dist/*.blockmap,dist/ac3.yml | ForEach-Object {
+            $hash = (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+            "$hash  $($_.Name)"
+          } | Set-Content -LiteralPath dist/SHASUMS256.txt -Encoding utf8
+
+      - name: Upload installer artifact
         uses: actions/upload-artifact@v6
         with:
-          name: lampa-windows
+          name: lampa-windows-x64-ac3-eac3
+          if-no-files-found: error
           path: |
             dist/*.exe
             dist/*.blockmap
-            dist/latest.yml
+            dist/ac3.yml
+            dist/SHASUMS256.txt
 
-  release:
-    runs-on: ubuntu-latest
-    needs: [build-linux, build-macos, build-windows]
-    outputs:
-      release_url: ${{ steps.create_release.outputs.url }}
-      upload_url: ${{ steps.create_release.outputs.upload_url }}
-    steps:
-      - name: Download all artifacts
-        uses: actions/download-artifact@v7
-
-      - name: Create GitHub Release
-        id: create_release
+      - name: Publish verified installer
+        if: github.event_name == 'push' || inputs.publish_release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.ref_name }}
-          name: ${{ github.ref_name }}
-          body: "Release ${{ github.ref_name }}"
-          draft: false
-          prerelease: false
+          tag_name: ${{ steps.verify.outputs.tag }}
+          target_commitish: ${{ github.sha }}
+          name: Lampa ${{ steps.verify.outputs.tag }} — Windows x64 AC3/EAC3
+          prerelease: true
+          fail_on_unmatched_files: true
+          body: |
+            Windows x64 build of Lampa Desktop using custom Electron 44.4.4 with AC3/EAC3 build flags.
+
+            Based on Kolovatoff/lampa-desktop. Updates for this build use ARST113/lampa-desktop.
+            Runtime: https://github.com/ARST113/electron/releases/tag/v44.4.4-ac3-eac3
+            The build verifies the ZIP checksum, packaged Electron version and unchanged custom ffmpeg.dll.
+
+            Download the `.exe` installer below. SHA-256 checksums are in SHASUMS256.txt.
           files: |
-            lampa-linux/*.AppImage
-            lampa-linux/*.deb
-            lampa-linux/*.rpm
-            lampa-linux/latest-linux.yml
-            lampa-macos/*.dmg
-            lampa-macos/*.blockmap
-            lampa-macos/latest-mac.yml
-            lampa-windows/*.exe
-            lampa-windows/*.blockmap
-            lampa-windows/latest.yml
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-  generate-downloads-table:
-    runs-on: ubuntu-latest
-    needs: [release, build-linux]
-    steps:
-      - name: Download all artifacts
-        uses: actions/download-artifact@v7
-
-      - name: Generate and update release body
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          VERSION="${{ needs.build-linux.outputs.version }}"
-
-          # Generate downloads table
-          cat > downloads.md << 'EOF'
-          ### ⬇️ Скачать
-
-          <details>
-          <summary><b>🪟 Windows</b></summary>
-
-          | Архитектура | Установщик |
-          |-------------|------------|
-          EOF
-
-          # Windows файлы
-          for file in lampa-windows/*.exe; do
-            if [ -f "$file" ]; then
-              filename=$(basename "$file")
-              size=$(du -h "$file" | cut -f1)
-
-              if [[ "$filename" == *"x64"* ]]; then
-                arch="**64-bit**"
-              elif [[ "$filename" == *"ia32"* ]]; then
-                arch="**32-bit**"
-              elif [[ "$filename" == *"arm64"* ]]; then
-                arch="**ARM64**"
-              elif [[ "$filename" == *"x86"* ]]; then
-                arch="**32-bit**"
-              else
-                arch="**Любая**"
-              fi
-
-              echo "| $arch | [\`$filename\`](https://github.com/${{ github.repository }}/releases/download/v$VERSION/$filename) <br> <sup>$size</sup> |" >> downloads.md
-            fi
-          done
-
-          cat >> downloads.md << 'EOF'
-          </details>
-
-          <details>
-          <summary><b>🍏 macOS</b></summary>
-
-          | Архитектура | Установщик |
-          |-------------|------------|
-          EOF
-
-          # macOS файлы
-          for file in lampa-macos/*.dmg; do
-            if [ -f "$file" ]; then
-              filename=$(basename "$file")
-              size=$(du -h "$file" | cut -f1)
-
-              if [[ "$filename" == *"x64"* ]] || [[ "$filename" == *"x86_64"* ]]; then
-                arch="**Intel (64-bit)**"
-              elif [[ "$filename" == *"arm64"* ]]; then
-                arch="**Apple Silicon (ARM64)**"
-              else
-                arch="**Universal**"
-              fi
-
-              echo "| $arch | [\`$filename\`](https://github.com/${{ github.repository }}/releases/download/v$VERSION/$filename) <br> <sup>$size</sup> |" >> downloads.md
-            fi
-          done
-
-          cat >> downloads.md << 'EOF'
-          </details>
-
-          <details>
-          <summary><b>🐧 Linux</b></summary>
-
-          | Архитектура | Формат | Установщик |
-          |-------------|--------|------------|
-          EOF
-
-          # Linux файлы
-          for file in lampa-linux/*.deb; do
-            if [ -f "$file" ]; then
-              filename=$(basename "$file")
-              size=$(du -h "$file" | cut -f1)
-
-              if [[ "$filename" == *"amd64"* ]]; then
-                arch="**64-bit**"
-                format="DEB"
-              elif [[ "$filename" == *"arm64"* ]]; then
-                arch="**ARM64**"
-                format="DEB"
-              elif [[ "$filename" == *"armhf"* ]]; then
-                arch="**ARMv7**"
-                format="DEB"
-              fi
-
-              echo "| $arch | $format | [\`$filename\`](https://github.com/${{ github.repository }}/releases/download/v$VERSION/$filename) <br> <sup>$size</sup> |" >> downloads.md
-            fi
-          done
-
-          for file in lampa-linux/*.rpm; do
-            if [ -f "$file" ]; then
-              filename=$(basename "$file")
-              size=$(du -h "$file" | cut -f1)
-
-              if [[ "$filename" == *"x86_64"* ]]; then
-                arch="**64-bit**"
-                format="RPM"
-              elif [[ "$filename" == *"aarch64"* ]]; then
-                arch="**ARM64**"
-                format="RPM"
-              elif [[ "$filename" == *"armv7"* ]]; then
-                arch="**ARMv7**"
-                format="RPM"
-              fi
-
-              echo "| $arch | $format | [\`$filename\`](https://github.com/${{ github.repository }}/releases/download/v$VERSION/$filename) <br> <sup>$size</sup> |" >> downloads.md
-            fi
-          done
-
-          for file in lampa-linux/*.AppImage; do
-            if [ -f "$file" ]; then
-              filename=$(basename "$file")
-              size=$(du -h "$file" | cut -f1)
-
-              if [[ "$filename" == *"x86_64"* ]]; then
-                arch="**64-bit**"
-                format="AppImage"
-              elif [[ "$filename" == *"arm64"* ]]; then
-                arch="**ARM64**"
-                format="AppImage"
-              fi
-
-              echo "| $arch | $format | [\`$filename\`](https://github.com/${{ github.repository }}/releases/download/v$VERSION/$filename) <br> <sup>$size</sup> |" >> downloads.md
-            fi
-          done
-
-          cat >> downloads.md << 'EOF'
-          </details>
-          EOF
-
-          # Get changelog from build-linux job
-          CHANGELOG="${{ needs.build-linux.outputs.changelog_body }}"
-
-          # Combine changelog with downloads table
-          echo "$CHANGELOG" > full_body.md
-          echo "" >> full_body.md
-          cat downloads.md >> full_body.md
-
-          # Update the release using --notes-file instead of --body-file
-          gh release edit v$VERSION \
-            --repo ${{ github.repository }} \
-            --title "v$VERSION" \
-            --notes-file full_body.md
+            dist/*.exe
+            dist/*.blockmap
+            dist/ac3.yml
+            dist/SHASUMS256.txt

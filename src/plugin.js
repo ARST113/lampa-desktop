@@ -889,6 +889,28 @@
         },
       }),
 
+      settingsManager.addToQueue({
+        order: 4.5,
+        param: { name: "app_settings_check_updates", type: "button" },
+        field: {
+          name: "Проверить обновления",
+          description:
+            "Проверить новую версию Lampa или показать состояние загрузки обновления.",
+        },
+        onChange: async () => {
+          Lampa.Noty.show("Проверка обновлений…");
+          try {
+            const result = await window.electronAPI.checkAppUpdates();
+            Lampa.Noty.show(result.message);
+          } catch (error) {
+            console.error("APP Update check failed:", error);
+            Lampa.Noty.show(
+              "Не удалось проверить обновления. Попробуйте ещё раз.",
+            );
+          }
+        },
+      }),
+
       settingsManager.loadAsyncSetting("lampaUrl", {
         order: 5,
         param: {

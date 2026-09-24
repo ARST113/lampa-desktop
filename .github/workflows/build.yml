@@ -44,8 +44,11 @@ jobs:
       - name: Check application JavaScript
         run: yarn exec eslint src scripts/verify-electron.cjs
 
+      - name: Test application updates
+        run: node --test test/autoUpdater.test.cjs
+
       - name: Check changed file formatting
-        run: yarn exec prettier package.json scripts/verify-electron.cjs .github/workflows/build.yml src/modules/autoUpdater.js README.md --check
+        run: yarn exec prettier package.json scripts/verify-electron.cjs .github/workflows/build.yml src/modules/autoUpdater.js src/modules/windowManager.js src/modules/ipcHandlers/otherHandlers.js src/preload.js src/plugin.js test/autoUpdater.test.cjs README.md --check
 
       - name: Download and verify custom Electron
         shell: pwsh
@@ -94,6 +97,9 @@ jobs:
           fail_on_unmatched_files: true
           body: |
             Windows x64 build of Lampa Desktop using custom Electron 44.4.4 with AC3/EAC3 build flags.
+
+            Enables embedded audio-track switching in the internal player, including torrents played through TorrServer.
+            Adds App settings → Check for updates, with background downloads and installation after confirmation.
 
             Based on Kolovatoff/lampa-desktop. Updates for this build use ARST113/lampa-desktop.
             Runtime: https://github.com/ARST113/electron/releases/tag/v44.4.4-ac3-eac3

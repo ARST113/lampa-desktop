@@ -43,9 +43,9 @@ node scripts/verify-electron.cjs dist/win-unpacked/Lampa.exe dist/win-unpacked/f
 
 ---
 
-## 🔧 Возможности
+## 🔧 Возможности (возможности взяты у Оригинального Автора)
 
-✅ Поддержка **Windows, Linux, macOS**  
+✅ Поддержка **Windows(Ac3 Eac3) Linux, macOS**  
 ✅ Синхронизация таймкодов с **VLC, KMPlayer, MPC(HC/BE/QT)** (кроме MacOS)  
 ✅ Динамическая загрузка Lampa с `lampa.mx` или кастомного URL  
 ✅ Экспорт/импорт конфигурации между устройствами  

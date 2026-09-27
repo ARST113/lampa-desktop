@@ -1,5 +1,5 @@
 const { app, ipcMain } = require("electron");
-const path = require("node:path");
+const { subtitleToolPath } = require("../subtitleToolPath");
 const { extractSubtitles, probeSubtitles } = require("../subtitleExtractor");
 const { stream } = require("../subtitleStream");
 
@@ -71,18 +71,13 @@ function registerSubtitleHandlers(getMainWindow) {
     const contents = owner(event);
     cancel(contents);
     watchLifecycle(contents);
-    const executable = app.isPackaged
-      ? path.join(
-          process.resourcesPath,
-          "subtitle-tools",
-          probing ? "ffprobe.exe" : "ffmpeg.exe",
-        )
-      : path.join(
-          app.getAppPath(),
-          ".cache",
-          "subtitle-tools",
-          probing ? "ffprobe.exe" : "ffmpeg.exe",
-        );
+    const executable = subtitleToolPath({
+      platform: process.platform,
+      isPackaged: app.isPackaged,
+      resourcesPath: process.resourcesPath,
+      appPath: app.getAppPath(),
+      probing,
+    });
     try {
       const session = probing
         ? probeSubtitles(executable, request)

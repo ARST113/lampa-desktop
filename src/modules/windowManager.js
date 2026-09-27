@@ -2,6 +2,7 @@ const { BrowserWindow, screen } = require("electron");
 const path = require("node:path");
 const store = require("./storeManager");
 const { setupPluginHandler } = require("./pluginHandler");
+const { setupDevTools } = require("./devTools");
 
 let mainWindow = null;
 
@@ -110,6 +111,7 @@ function createWindow() {
   }
 
   mainWindow = new BrowserWindow(windowOptions);
+  setupDevTools(mainWindow);
 
   mainWindow.setMenu(null);
 

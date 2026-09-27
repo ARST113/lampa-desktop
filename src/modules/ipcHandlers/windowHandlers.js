@@ -2,6 +2,16 @@ const { ipcMain } = require("electron");
 const store = require("../storeManager");
 
 function registerWindowHandlers(getMainWindow) {
+  ipcMain.handle("open-devtools", (event) => {
+    const window = getMainWindow();
+    if (
+      !window ||
+      event.sender !== window.webContents ||
+      event.senderFrame !== window.webContents.mainFrame
+    )
+      return;
+    require("../devTools").openConsole(window);
+  });
   ipcMain.on("toggle-fullscreen", () => {
     const mainWindow = getMainWindow();
     if (!mainWindow) return;

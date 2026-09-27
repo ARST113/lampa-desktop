@@ -911,6 +911,17 @@
         },
       }),
 
+      settingsManager.addToQueue({
+        order: 4.6,
+        param: { name: "app_settings_console", type: "button" },
+        field: {
+          name: "Открыть консоль",
+          description:
+            "Диагностика приложения. Также открывается клавишами F12 или Ctrl+Shift+I.",
+        },
+        onChange: () => window.electronAPI.openDevTools(),
+      }),
+
       settingsManager.loadAsyncSetting("lampaUrl", {
         order: 5,
         param: {

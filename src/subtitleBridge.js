@@ -236,7 +236,10 @@
       const source = video?.currentSrc || video?.src || "";
       if (
         !video?.addTextTrack ||
-        data.subtitles?.some((sub) => typeof sub.url === "string" && sub.url) ||
+        (Array.isArray(data.subtitles) &&
+          data.subtitles.some(
+            (sub) => typeof sub?.url === "string" && sub.url,
+          )) ||
         !/^https?:/.test(source) ||
         /\.m3u8(?:[?#]|$)/i.test(source)
       )

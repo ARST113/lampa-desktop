@@ -85,7 +85,7 @@ app
     const until=async fn=>{const end=Date.now()+15000;while(!fn()){if(Date.now()>end)throw Error('Timed out: '+messages.join('; '));await new Promise(r=>setTimeout(r,50));}};
     const seek=async time=>{v.currentTime=time;await until(()=>!v.seeking);};
     const active=()=>Array.from(v.textTracks).flatMap(t=>t.mode==='showing'?Array.from(t.activeCues||[],c=>c.text):[]);
-    const data={torrent_hash:'test',ffprobe:[{index:0,codec_type:'video',codec_name:'mpeg4'},{index:1,codec_type:'audio',codec_name:'ac3',tags:{language:'eng'}},{index:2,codec_type:'subtitle',codec_name:'subrip',tags:{language:'rus',title:'Russian'}},{index:3,codec_type:'subtitle',codec_name:'ass',tags:{language:'eng',title:'English'}}]};
+    const data={torrent_hash:'test',subtitles:false,ffprobe:[{index:0,codec_type:'video',codec_name:'mpeg4'},{index:1,codec_type:'audio',codec_name:'ac3',tags:{language:'eng'}},{index:2,codec_type:'subtitle',codec_name:'subrip',tags:{language:'rus',title:'Russian'}},{index:3,codec_type:'subtitle',codec_name:'ass',tags:{language:'eng',title:'English'}}]};
     Lampa.Player.listener.send('start',data);
     Lampa.Player.listener.send('ready',data);
     if(menu.length!==2)throw Error('Subtitle menu did not receive both tracks');

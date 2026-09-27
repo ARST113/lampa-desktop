@@ -210,27 +210,65 @@
       return;
     window.desktopSubtitlesInstalled = true;
     let session = null;
+    let generation = 0;
+    let probeId = null;
+    // Metadata plugins may replace the menu with entries that only toggle empty
+    // native tracks. Keep the working controls while this session owns subtitles.
+    const originalSetSubs = Lampa.PlayerPanel?.setSubs;
+    if (originalSetSubs) {
+      Lampa.PlayerPanel.setSubs = function (subs) {
+        return originalSetSubs.call(this, session ? session.entries : subs);
+      };
+    }
     const clean = () => {
+      generation++;
+      if (probeId) electronAPI.subtitles.cancel(probeId).catch(() => {});
+      probeId = null;
       session?.dispose();
       session = null;
     };
     Lampa.Player.listener.follow("destroy", clean);
     Lampa.PlayerVideo.listener.follow("destroy", clean);
-    Lampa.Player.listener.follow("ready", (data) => {
+    Lampa.Player.listener.follow("ready", async (data) => {
       clean();
+      const currentGeneration = generation;
       const video = Lampa.PlayerVideo.video();
       const source = video?.currentSrc || video?.src || "";
-      const streams = subtitleStreams(data.ffprobe);
       if (
         !video?.addTextTrack ||
-        !streams.length ||
-        data.subtitles?.length ||
+        data.subtitles?.some((sub) => typeof sub.url === "string" && sub.url) ||
         !/^https?:/.test(source) ||
         /\.m3u8(?:[?#]|$)/i.test(source)
       )
         return;
       if (!data.torrent_hash && !/\.mkv(?:[?#]|$)/i.test(source)) return;
       if (video.textTracks?.length) return;
+      let streams = subtitleStreams(data.ffprobe);
+      if (!data.ffprobe) {
+        probeId = `${Date.now()}-probe-${generation}`;
+        try {
+          const result = await electronAPI.subtitles.probe({
+            id: probeId,
+            url: source,
+          });
+          if (
+            generation !== currentGeneration ||
+            video !== Lampa.PlayerVideo.video()
+          )
+            return;
+          probeId = null;
+          if (!result.success) {
+            if (!result.cancelled) Lampa.Noty.show(result.message);
+            return;
+          }
+          streams = subtitleStreams(result.streams);
+        } catch {
+          if (generation === currentGeneration)
+            Lampa.Noty.show("Не удалось определить встроенные субтитры.");
+          return;
+        }
+      }
+      if (!streams.length) return;
       session = attachVideo(video, streams, electronAPI.subtitles, (message) =>
         Lampa.Noty.show(message),
       );

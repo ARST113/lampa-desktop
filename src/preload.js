@@ -65,6 +65,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
   loadUrl: (url) => ipcRenderer.send("load-url", url),
   checkAppUpdates: () => ipcRenderer.invoke("app-check-updates"),
   subtitles: {
+    probe: (request) => ipcRenderer.invoke("desktop-subtitles-probe", request),
     extract: (request) =>
       ipcRenderer.invoke("desktop-subtitles-extract", request),
     cancel: (id) => ipcRenderer.invoke("desktop-subtitles-cancel", id),

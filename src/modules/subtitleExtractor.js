@@ -115,4 +115,73 @@ function extractSubtitles(executable, request, onData) {
   };
 }
 
-module.exports = { extractSubtitles, validateRequest };
+function probeSubtitles(executable, request) {
+  validateRequest({ ...request, streamIndex: 0, start: 0 });
+  const child = spawn(
+    executable,
+    [
+      "-v",
+      "error",
+      "-protocol_whitelist",
+      "http,https,tcp,tls",
+      "-rw_timeout",
+      "15000000",
+      "-f",
+      "matroska",
+      "-select_streams",
+      "s",
+      "-show_entries",
+      "stream=index,codec_name,codec_type:stream_tags=language,title",
+      "-of",
+      "json",
+      request.url,
+    ],
+    { windowsHide: true, shell: false, stdio: ["ignore", "pipe", "pipe"] },
+  );
+  let output = "";
+  let cancelled = false;
+  let failed = false;
+  const timer = setTimeout(() => {
+    failed = true;
+    child.kill();
+  }, 30000);
+  child.stdout.setEncoding("utf8");
+  child.stdout.on("data", (text) => {
+    if (output.length + text.length > 1024 * 1024) {
+      failed = true;
+      child.kill();
+    } else output += text;
+  });
+  child.stderr.resume();
+  const promise = new Promise((resolve) => {
+    child.once("error", () => {
+      failed = true;
+    });
+    child.once("close", (code) => {
+      clearTimeout(timer);
+      if (!failed && !cancelled && code === 0) {
+        try {
+          resolve({ success: true, streams: JSON.parse(output).streams || [] });
+          return;
+        } catch {
+          failed = true;
+        }
+      }
+      resolve({
+        success: false,
+        cancelled,
+        message:
+          "Не удалось определить субтитры. Для этого видео нужен доступный поток MKV.",
+      });
+    });
+  });
+  return {
+    promise,
+    cancel() {
+      cancelled = true;
+      child.kill();
+    },
+  };
+}
+
+module.exports = { extractSubtitles, probeSubtitles, validateRequest };

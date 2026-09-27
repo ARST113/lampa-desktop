@@ -68,8 +68,15 @@ app
       "Chromium must reproduce the missing in-container subtitle tracks",
     );
     await window.webContents.executeJavaScript(
-      `window.messages=[];window.menu=[];const bus=()=>({listeners:{},follow(n,f){(this.listeners[n]||=[]).push(f)},send(n,d){for(const f of this.listeners[n]||[])f(d)}});window.Lampa={Player:{listener:bus()},PlayerVideo:{listener:bus(),video:()=>document.querySelector('video')},Noty:{show:m=>messages.push(m)}};Lampa.PlayerVideo.listener.follow('subs',d=>window.menu=d.subs);`,
+      `window.messages=[];window.menu=[];const bus=()=>({listeners:{},follow(n,f){(this.listeners[n]||=[]).push(f)},remove(n,f){this.listeners[n]=(this.listeners[n]||[]).filter(x=>x!==f)},send(n,d){for(const f of [...(this.listeners[n]||[])])f(d)}});window.Lampa={Storage:{get:()=>'',set(){}},Utils:{uid:()=> 'fixture'},Template:{add(){},get:()=>''},Listener:bus(),Player:{listener:bus()},PlayerPanel:{setSubs(subs){window.menu=subs},setTracks(){}},PlayerVideo:{listener:bus(),video:()=>document.querySelector('video')},Noty:{show:m=>messages.push(m)}};window.$=()=>({append(){}});Lampa.PlayerVideo.listener.follow('subs',d=>Lampa.PlayerPanel.setSubs(d.subs));`,
     );
+    // Optional local compatibility check against the user's downloaded page plugin.
+    // CI remains independent of third-party page availability.
+    if (process.env.LAMPA_TRACKS_PLUGIN) {
+      await window.webContents.executeJavaScript(
+        fs.readFileSync(process.env.LAMPA_TRACKS_PLUGIN, "utf8"),
+      );
+    }
     await window.webContents.executeJavaScript(
       fs.readFileSync(path.join(root, "src/subtitleBridge.js"), "utf8"),
     );
@@ -78,8 +85,15 @@ app
     const until=async fn=>{const end=Date.now()+15000;while(!fn()){if(Date.now()>end)throw Error('Timed out: '+messages.join('; '));await new Promise(r=>setTimeout(r,50));}};
     const seek=async time=>{v.currentTime=time;await until(()=>!v.seeking);};
     const active=()=>Array.from(v.textTracks).flatMap(t=>t.mode==='showing'?Array.from(t.activeCues||[],c=>c.text):[]);
-    Lampa.Player.listener.send('ready',{torrent_hash:'test',ffprobe:[{index:2,codec_type:'subtitle',codec_name:'subrip',tags:{language:'rus',title:'Russian'}},{index:3,codec_type:'subtitle',codec_name:'ass',tags:{language:'eng',title:'English'}}]});
+    const data={torrent_hash:'test',ffprobe:[{index:0,codec_type:'video',codec_name:'mpeg4'},{index:1,codec_type:'audio',codec_name:'ac3',tags:{language:'eng'}},{index:2,codec_type:'subtitle',codec_name:'subrip',tags:{language:'rus',title:'Russian'}},{index:3,codec_type:'subtitle',codec_name:'ass',tags:{language:'eng',title:'English'}}]};
+    Lampa.Player.listener.send('start',data);
+    Lampa.Player.listener.send('ready',data);
     if(menu.length!==2)throw Error('Subtitle menu did not receive both tracks');
+    const ownedMenu=menu;
+    await new Promise(resolve=>setTimeout(resolve,350));
+    if(menu!==ownedMenu)throw Error('Tracks plugin replaced functional subtitle controls');
+    Lampa.PlayerPanel.setSubs([{index:0,language:'rus',ghost:true},{index:1,language:'eng',ghost:true}]);
+    if(menu!==ownedMenu)throw Error('Metadata plugin replaced functional subtitle controls');
     await seek(2);menu[0].mode='showing';await until(()=>active().some(t=>t.includes('первая')));
     const russian=active();
     await seek(83);await until(()=>active().some(t=>t.includes('границе')));
@@ -91,7 +105,12 @@ app
     const english=active();
     await seek(12);await until(()=>active().some(t=>t.includes('Second')));
     const seekBackward=active();
-    window.integrationResult={russian,seekForward,english,seekBackward,messages};return window.integrationResult;
+    Lampa.Player.listener.send('destroy',{});window.menu=[];
+    Lampa.Player.listener.send('ready',{torrent_hash:'metadata-fallback'});
+    await until(()=>menu.length===2);
+    await seek(2);menu[0].mode='showing';await until(()=>active().some(t=>t.includes('первая')));
+    const discovered=active();
+    window.integrationResult={russian,seekForward,english,seekBackward,discovered,messages};return window.integrationResult;
   })()`);
     await window.webContents.executeJavaScript(
       "new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))",
@@ -107,10 +126,20 @@ app
     assert.equal(cleanup.remaining, 0);
     fs.writeFileSync(
       path.join(output, "result.json"),
-      JSON.stringify({ before, ...result, cleanup, requests }, null, 2),
+      JSON.stringify(
+        {
+          before,
+          ...result,
+          cleanup,
+          requests,
+          tracksPlugin: !!process.env.LAMPA_TRACKS_PLUGIN,
+        },
+        null,
+        2,
+      ),
     );
     console.log(
-      "PASS: SRT and ASS rendering, language switching, forward/backward seeking, disabling and cleanup.",
+      "PASS: SRT and ASS rendering, plugin compatibility, track discovery, language switching, seeking and cleanup.",
     );
     clearTimeout(timeout);
     server.close();

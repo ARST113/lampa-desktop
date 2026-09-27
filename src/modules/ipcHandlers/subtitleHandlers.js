@@ -1,6 +1,6 @@
 const { app, ipcMain } = require("electron");
 const path = require("node:path");
-const { extractSubtitles } = require("../subtitleExtractor");
+const { extractSubtitles, probeSubtitles } = require("../subtitleExtractor");
 
 function registerSubtitleHandlers(getMainWindow) {
   const sessions = new Map();
@@ -27,7 +27,7 @@ function registerSubtitleHandlers(getMainWindow) {
   ipcMain.handle("desktop-subtitles-cancel", (event, id) =>
     cancel(owner(event), id),
   );
-  ipcMain.handle("desktop-subtitles-extract", async (event, request) => {
+  async function run(event, request, probing = false) {
     const contents = owner(event);
     cancel(contents);
     if (!watched.has(contents)) {
@@ -41,13 +41,24 @@ function registerSubtitleHandlers(getMainWindow) {
       );
     }
     const executable = app.isPackaged
-      ? path.join(process.resourcesPath, "subtitle-tools", "ffmpeg.exe")
-      : path.join(app.getAppPath(), ".cache", "subtitle-tools", "ffmpeg.exe");
+      ? path.join(
+          process.resourcesPath,
+          "subtitle-tools",
+          probing ? "ffprobe.exe" : "ffmpeg.exe",
+        )
+      : path.join(
+          app.getAppPath(),
+          ".cache",
+          "subtitle-tools",
+          probing ? "ffprobe.exe" : "ffmpeg.exe",
+        );
     try {
-      const session = extractSubtitles(executable, request, (text) => {
-        if (!contents.isDestroyed())
-          contents.send("desktop-subtitles-data", { id: request.id, text });
-      });
+      const session = probing
+        ? probeSubtitles(executable, request)
+        : extractSubtitles(executable, request, (text) => {
+            if (!contents.isDestroyed())
+              contents.send("desktop-subtitles-data", { id: request.id, text });
+          });
       session.id = request.id;
       sessions.set(contents.id, session);
       const result = await session.promise;
@@ -59,6 +70,16 @@ function registerSubtitleHandlers(getMainWindow) {
         message: "Не удалось запустить обработку субтитров для этого видео.",
       };
     }
+  }
+  ipcMain.handle("desktop-subtitles-extract", (event, request) =>
+    run(event, request),
+  );
+  ipcMain.handle("desktop-subtitles-probe", (event, request) =>
+    run(event, request, true),
+  );
+  app.on("before-quit", () => {
+    for (const session of sessions.values()) session.cancel();
+    sessions.clear();
   });
 }
 module.exports = registerSubtitleHandlers;

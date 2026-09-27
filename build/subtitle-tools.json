@@ -4,6 +4,9 @@
   "archive": "ffmpeg-win32-x64.gz",
   "archiveSha256": "8883a3dffbd0a16cf4ef95206ea05283f78908dbfb118f73c83f4951dcc06d77",
   "executableSha256": "04e1307997530f9cf2fe35cba2ca7e8875ca91da02f89d6c7243df819c94ad00",
+  "probeArchive": "ffprobe-win32-x64.gz",
+  "probeArchiveSha256": "f309e6223ad89d2fe54bccd420a7709b66fd27540674e92309578ed491a43c8d",
+  "probeSha256": "3a7e2dc003dc2cd1472827e4c7c4f056ae1ae0ae7c5bbc580c99b49827351ba4",
   "notices": [
     {"asset": "win32-x64.LICENSE", "file": "FFmpeg-LICENSE.txt", "sha256": "8ceb4b9ee5adedde47b31e975c1d90c73ad27b6b165a1dcd80c7c545eb65b903"},
     {"asset": "win32-x64.README", "file": "FFmpeg-README.txt", "sha256": "a636a7183c58006351acbaf35303c0ed85c6e1320fd4e80de453ba6157de6311"}

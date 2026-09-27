@@ -44,15 +44,22 @@ jobs:
       - name: Check application JavaScript
         run: yarn exec eslint src scripts/verify-electron.cjs
 
-      - name: Test application updates
-        run: node --test test/autoUpdater.test.cjs
+      - name: Test application updates and subtitles
+        run: node --test test/autoUpdater.test.cjs test/subtitles.test.cjs
 
       - name: Check changed file formatting
-        run: yarn exec prettier package.json scripts/verify-electron.cjs .github/workflows/build.yml src/modules/autoUpdater.js src/modules/windowManager.js src/modules/ipcHandlers/otherHandlers.js src/preload.js src/plugin.js test/autoUpdater.test.cjs README.md --check
+        run: yarn exec prettier package.json build/subtitle-tools.json scripts/verify-electron.cjs .github/workflows/build.yml src/modules/autoUpdater.js src/modules/windowManager.js src/modules/ipcHandlers/otherHandlers.js src/modules/ipcHandlers/subtitleHandlers.js src/modules/ipcHandlers/index.js src/modules/subtitleExtractor.js src/modules/pluginHandler.js src/subtitleBridge.js src/preload.js src/plugin.js test/*.cjs README.md --check
 
       - name: Download and verify custom Electron
         shell: pwsh
         run: ./scripts/prepare-electron.ps1
+
+      - name: Prepare verified subtitle extraction tool
+        shell: pwsh
+        run: ./scripts/prepare-subtitle-tools.ps1
+
+      - name: Test real subtitle playback and seeking
+        run: node test/run-subtitle-integration.cjs
 
       - name: Package Windows x64 installer
         run: yarn build-win
@@ -64,6 +71,13 @@ jobs:
           node scripts/verify-electron.cjs dist/win-unpacked/Lampa.exe dist/win-unpacked/ffmpeg.dll
           if ($LASTEXITCODE -ne 0) { throw 'Packaged runtime verification failed.' }
           if (!(Test-Path -LiteralPath 'dist/win-unpacked/resources/app.asar')) { throw 'Missing packaged application.' }
+          $subtitleTools = Get-Content build/subtitle-tools.json -Raw | ConvertFrom-Json
+          $subtitleHash = (Get-FileHash -LiteralPath 'dist/win-unpacked/resources/subtitle-tools/ffmpeg.exe' -Algorithm SHA256).Hash
+          if ($subtitleHash -ne $subtitleTools.executableSha256) { throw 'Packaged subtitle tool checksum mismatch.' }
+          foreach ($notice in $subtitleTools.notices) {
+            $noticeHash = (Get-FileHash -LiteralPath (Join-Path 'dist/win-unpacked/resources/subtitle-tools' $notice.file) -Algorithm SHA256).Hash
+            if ($noticeHash -ne $notice.sha256) { throw 'Packaged subtitle notice checksum mismatch.' }
+          }
           $package = Get-Content package.json -Raw | ConvertFrom-Json
           $tag = "v$($package.version)"
           if ($env:GITHUB_REF_TYPE -eq 'tag' -and $env:GITHUB_REF_NAME -ne $tag) { throw 'Tag and package version differ.' }
@@ -100,6 +114,10 @@ jobs:
 
             Enables embedded audio-track switching in the internal player, including torrents played through TorrServer.
             Adds App settings → Check for updates, with background downloads and installation after confirmation.
+
+            New in ac3.3: embedded MKV text subtitles (SRT, ASS/SSA, WebVTT) in the internal player through TorrServer.
+            Supports language switching, seeking and disabling subtitles. Video and audio are not transcoded.
+            FFmpeg extraction tool is included. Graphical PGS/VobSub tracks require an external player; complex ASS styling is converted to WebVTT text.
 
             Based on Kolovatoff/lampa-desktop. Updates for this build use ARST113/lampa-desktop.
             Runtime: https://github.com/ARST113/electron/releases/tag/v44.4.4-ac3-eac3

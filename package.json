@@ -1,7 +1,7 @@
 {
   "name": "lampa-desktop",
   "productName": "Lampa",
-  "version": "1.6.0-ac3.2",
+  "version": "1.6.0-ac3.3",
   "description": "Десктопное приложение-клиент для Lampa",
   "repository": {
     "type": "git",
@@ -56,6 +56,17 @@
   "build": {
     "electronVersion": "44.4.4",
     "electronDist": ".cache/electron-ac3-eac3",
+    "extraResources": [
+      {
+        "from": ".cache/subtitle-tools",
+        "to": "subtitle-tools",
+        "filter": [
+          "ffmpeg.exe",
+          "FFmpeg-LICENSE.txt",
+          "FFmpeg-README.txt"
+        ]
+      }
+    ],
     "files": [
       "src/**/*",
       "build/icon.svg",

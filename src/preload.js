@@ -64,6 +64,17 @@ contextBridge.exposeInMainWorld("electronAPI", {
   setFullscreenMode: (mode) => ipcRenderer.invoke("set-fullscreen-mode", mode),
   loadUrl: (url) => ipcRenderer.send("load-url", url),
   checkAppUpdates: () => ipcRenderer.invoke("app-check-updates"),
+  subtitles: {
+    extract: (request) =>
+      ipcRenderer.invoke("desktop-subtitles-extract", request),
+    cancel: (id) => ipcRenderer.invoke("desktop-subtitles-cancel", id),
+    onData: (callback) => {
+      const listener = (_event, data) => callback(data);
+      ipcRenderer.on("desktop-subtitles-data", listener);
+      return () =>
+        ipcRenderer.removeListener("desktop-subtitles-data", listener);
+    },
+  },
   getAppVersion: async () => {
     return await ipcRenderer.invoke("get-app-version");
   },

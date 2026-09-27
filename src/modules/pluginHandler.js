@@ -37,7 +37,11 @@ function injectPlugin(mainWindow) {
     "utf-8",
   );
   mainWindow.webContents
-    .executeJavaScript(pluginCode)
+    .executeJavaScript(
+      pluginCode +
+        "\n" +
+        readFileSync(path.join(__dirname, "..", "subtitleBridge.js"), "utf-8"),
+    )
     .then(() => {
       console.log("Плагин успешно внедрён");
     })

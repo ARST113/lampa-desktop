@@ -1,0 +1,55 @@
+const { execFileSync } = require("node:child_process");
+const fs = require("node:fs");
+const path = require("node:path");
+const root = path.resolve(__dirname, "..");
+const output = path.join(root, ".cache", "subtitle-test");
+fs.mkdirSync(output, { recursive: true });
+execFileSync(
+  path.join(root, ".cache/subtitle-tools/ffmpeg.exe"),
+  [
+    "-nostdin",
+    "-hide_banner",
+    "-loglevel",
+    "error",
+    "-y",
+    "-f",
+    "lavfi",
+    "-i",
+    "color=c=0x303030:s=640x360:r=10:d=185",
+    "-f",
+    "lavfi",
+    "-i",
+    "sine=frequency=440:sample_rate=48000:duration=185",
+    "-i",
+    path.join(__dirname, "fixtures/russian.srt"),
+    "-i",
+    path.join(__dirname, "fixtures/english.srt"),
+    "-map",
+    "0",
+    "-map",
+    "1",
+    "-map",
+    "2",
+    "-map",
+    "3",
+    "-c:v",
+    "libvpx",
+    "-b:v",
+    "50k",
+    "-c:a",
+    "ac3",
+    "-c:s:0",
+    "srt",
+    "-c:s:1",
+    "ass",
+    "-metadata:s:s:0",
+    "language=rus",
+    "-metadata:s:s:1",
+    "language=eng",
+    "-t",
+    "185",
+    path.join(output, "fixture.mkv"),
+  ],
+  { windowsHide: true, timeout: 30000 },
+);
+console.log("Synthetic MKV fixture with SRT and ASS tracks created.");

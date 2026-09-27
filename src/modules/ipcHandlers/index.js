@@ -12,6 +12,7 @@ const registerTorrServerHandlers = require("./torrServerHandlers");
 const registerFolderHandlers = require("./folderHandlers");
 const registerPlayerHandlers = require("./playerHandlers");
 const registerOtherHandlers = require("./otherHandlers");
+const registerSubtitleHandlers = require("./subtitleHandlers");
 
 function registerIpcHandlers() {
   // Базовые обработчики store
@@ -40,6 +41,7 @@ function registerIpcHandlers() {
 
   // Дополнительные обработчики
   registerOtherHandlers();
+  registerSubtitleHandlers(getMainWindow);
 }
 
 module.exports = {

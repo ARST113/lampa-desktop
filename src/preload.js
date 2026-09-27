@@ -66,6 +66,15 @@ contextBridge.exposeInMainWorld("electronAPI", {
   checkAppUpdates: () => ipcRenderer.invoke("app-check-updates"),
   openDevTools: () => ipcRenderer.invoke("open-devtools"),
   subtitles: {
+    watch: (url) => ipcRenderer.invoke("desktop-subtitles-watch", url),
+    unwatch: () => ipcRenderer.invoke("desktop-subtitles-unwatch"),
+    seek: (time) => ipcRenderer.invoke("desktop-subtitles-seek", time),
+    onStream: (callback) => {
+      const listener = (_event, data) => callback(data);
+      ipcRenderer.on("desktop-subtitles-stream", listener);
+      return () =>
+        ipcRenderer.removeListener("desktop-subtitles-stream", listener);
+    },
     probe: (request) => ipcRenderer.invoke("desktop-subtitles-probe", request),
     extract: (request) =>
       ipcRenderer.invoke("desktop-subtitles-extract", request),

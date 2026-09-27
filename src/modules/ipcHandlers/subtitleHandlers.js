@@ -1,10 +1,12 @@
 const { app, ipcMain } = require("electron");
 const path = require("node:path");
 const { extractSubtitles, probeSubtitles } = require("../subtitleExtractor");
+const { stream } = require("../subtitleStream");
 
 function registerSubtitleHandlers(getMainWindow) {
   const sessions = new Map();
   const watched = new WeakSet();
+  const subscriptions = new Map();
   function owner(event) {
     const contents = getMainWindow()?.webContents;
     if (
@@ -24,22 +26,49 @@ function registerSubtitleHandlers(getMainWindow) {
       sessions.delete(contents.id);
     }
   }
+  function stopWatching(contents) {
+    subscriptions.get(contents.id)?.stop();
+    subscriptions.delete(contents.id);
+  }
+  function watchLifecycle(contents) {
+    if (watched.has(contents)) return;
+    watched.add(contents);
+    const clean = () => {
+      cancel(contents);
+      stopWatching(contents);
+    };
+    contents.once("destroyed", clean);
+    contents.on(
+      "did-start-navigation",
+      (_event, _url, _inPlace, isMainFrame) => {
+        if (isMainFrame) clean();
+      },
+    );
+  }
+  ipcMain.handle("desktop-subtitles-watch", (event, url) => {
+    const contents = owner(event);
+    stopWatching(contents);
+    watchLifecycle(contents);
+    const subscription = stream.watch(url, (packet) => {
+      if (!contents.isDestroyed())
+        contents.send("desktop-subtitles-stream", packet);
+    });
+    subscriptions.set(contents.id, subscription);
+    return subscription.snapshot;
+  });
+  ipcMain.handle("desktop-subtitles-unwatch", (event) =>
+    stopWatching(owner(event)),
+  );
+  ipcMain.handle("desktop-subtitles-seek", (event, time) =>
+    subscriptions.get(owner(event).id)?.seek(time),
+  );
   ipcMain.handle("desktop-subtitles-cancel", (event, id) =>
     cancel(owner(event), id),
   );
   async function run(event, request, probing = false) {
     const contents = owner(event);
     cancel(contents);
-    if (!watched.has(contents)) {
-      watched.add(contents);
-      contents.once("destroyed", () => cancel(contents));
-      contents.on(
-        "did-start-navigation",
-        (_event, _url, _inPlace, isMainFrame) => {
-          if (isMainFrame) cancel(contents);
-        },
-      );
-    }
+    watchLifecycle(contents);
     const executable = app.isPackaged
       ? path.join(
           process.resourcesPath,
@@ -78,6 +107,8 @@ function registerSubtitleHandlers(getMainWindow) {
     run(event, request, true),
   );
   app.on("before-quit", () => {
+    for (const subscription of subscriptions.values()) subscription.stop();
+    subscriptions.clear();
     for (const session of sessions.values()) session.cancel();
     sessions.clear();
   });

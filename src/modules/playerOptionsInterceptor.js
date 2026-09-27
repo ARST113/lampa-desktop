@@ -1,5 +1,6 @@
 // modules/playerOptionsInterceptor.js
-const { protocol } = require("electron");
+const { protocol, net } = require("electron");
+const { stream } = require("./subtitleStream");
 
 class PlayerOptionsInterceptor {
   constructor() {
@@ -11,8 +12,11 @@ class PlayerOptionsInterceptor {
    */
   initialize() {
     if (this.isInitialized) return;
+    const forward = (request, options = {}) =>
+      net.fetch(request, { ...options, bypassCustomProtocolHandlers: true });
+    stream.fetchRange = forward;
 
-    protocol.handle("http", (request) => {
+    const handle = async (request) => {
       const url = new URL(request.url);
 
       if (
@@ -36,8 +40,10 @@ class PlayerOptionsInterceptor {
         });
       }
 
-      return fetch(request);
-    });
+      return stream.observe(request, await forward(request));
+    };
+    protocol.handle("http", handle);
+    protocol.handle("https", handle);
     this.isInitialized = true;
     console.log("✅ Перехват OPTIONS для VLC настроен через protocol.handle");
   }

@@ -201,6 +201,152 @@
     return { entries, dispose };
   }
 
+  function attachStream(video, api, changed, notify) {
+    const entries = [];
+    const tracks = new Map();
+    const cues = new Map();
+    const originalSubs = video.customSubs;
+    let bytes = 0;
+    let disposed = false;
+    let streamId = null;
+    let queued = [];
+    let selected = null;
+    const seek = () => {
+      if (!disposed) api.seek(video.currentTime).catch(() => {});
+    };
+    video.addEventListener("seeked", seek);
+    function publish() {
+      // Lampa inserts its "Off" item into menu arrays. Never expose the array
+      // used for track ownership and cleanup to that mutation.
+      video.customSubs = entries.slice();
+      changed(entries.slice());
+    }
+    function metadata(streams) {
+      for (const stream of streams) {
+        if (tracks.has(stream.trackNumber)) continue;
+        const element = video.ownerDocument.createElement("track");
+        element.kind = "subtitles";
+        element.label = stream.label;
+        element.srclang = stream.language;
+        const item = { stream, element, loaded: false, entry: null };
+        element.addEventListener("load", () => {
+          if (disposed) return;
+          item.loaded = true;
+          for (const cue of cues.values()) {
+            if (cue.track === element.track && !cue.added) {
+              element.track.addCue(cue.native);
+              cue.added = true;
+            }
+          }
+        });
+        if (stream.supported) {
+          // Track loading resets its cue list asynchronously. Finish loading an
+          // empty local VTT before inserting container cues, including snapshots.
+          element.src = "data:text/vtt,WEBVTT%0A%0A";
+          video.appendChild(element);
+          element.track.mode = "hidden";
+        }
+        const entry = {
+          index: entries.length,
+          language: stream.language,
+          label: stream.supported
+            ? stream.label
+            : `${stream.label} (${stream.codec}: формат не поддерживается)`,
+          ghost: !stream.supported,
+          noenter: !stream.supported,
+          selected: false,
+          ready: true,
+        };
+        Object.defineProperty(entry, "mode", {
+          get: () => (selected === stream.trackNumber ? "showing" : "disabled"),
+          set: (mode) => {
+            if (disposed || !stream.supported) return;
+            if (mode !== "showing") {
+              element.track.mode = "hidden";
+              entry.selected = false;
+              if (selected === stream.trackNumber) selected = null;
+              return;
+            }
+            for (const item of tracks.values()) {
+              if (item.stream.supported) item.element.track.mode = "hidden";
+              item.entry.selected = false;
+            }
+            selected = stream.trackNumber;
+            entry.selected = true;
+            element.track.mode = "showing";
+          },
+        });
+        item.entry = entry;
+        tracks.set(stream.trackNumber, item);
+        entries.push(entry);
+      }
+      publish();
+    }
+    function add(cue) {
+      const item = tracks.get(cue.trackNumber);
+      if (!item?.stream.supported) return;
+      const key = `${cue.trackNumber}:${cue.start}:${cue.end}:${cue.text}`;
+      if (cues.has(key)) return;
+      const native = new video.ownerDocument.defaultView.VTTCue(
+        cue.start,
+        cue.end,
+        cue.text,
+      );
+      if (item.loaded) item.element.track.addCue(native);
+      cues.set(key, { native, track: item.element.track, added: item.loaded });
+      bytes += cue.text.length * 2 + 128;
+      while (cues.size > 20000 || bytes > 4 * 1024 * 1024) {
+        const [oldKey, old] = cues.entries().next().value;
+        if (old.added) old.track.removeCue(old.native);
+        bytes -= old.native.text.length * 2 + 128;
+        cues.delete(oldKey);
+      }
+    }
+    function receive(packet) {
+      if (disposed) return;
+      if (!streamId) {
+        queued.push(packet);
+        return;
+      }
+      if (packet.id !== streamId) return;
+      for (const event of packet.events) {
+        if (event.type === "tracks") metadata(event.tracks);
+        else if (event.type === "cue") add(event.cue);
+        else if (event.type === "index") seek();
+      }
+    }
+    const unsubscribe = api.onStream(receive);
+    api
+      .watch(video.currentSrc || video.src)
+      .then((snapshot) => {
+        if (disposed) return;
+        streamId = snapshot.id;
+        metadata(snapshot.tracks);
+        snapshot.cues.forEach(add);
+        seek();
+        queued.forEach(receive);
+        queued = [];
+      })
+      .catch(() => {
+        if (!disposed)
+          notify("Не удалось подключить чтение встроенных субтитров.");
+      });
+    return {
+      entries,
+      dispose() {
+        if (disposed) return;
+        disposed = true;
+        unsubscribe();
+        video.removeEventListener("seeked", seek);
+        api.unwatch().catch(() => {});
+        queued = [];
+        tracks.forEach((item) => item.element.remove());
+        cues.clear();
+        video.customSubs = originalSubs;
+      },
+    };
+  }
+
   function install(Lampa, electronAPI) {
     if (
       !Lampa?.Player?.listener ||
@@ -217,7 +363,10 @@
     const originalSetSubs = Lampa.PlayerPanel?.setSubs;
     if (originalSetSubs) {
       Lampa.PlayerPanel.setSubs = function (subs) {
-        return originalSetSubs.call(this, session ? session.entries : subs);
+        return originalSetSubs.call(
+          this,
+          session ? session.entries.slice() : subs,
+        );
       };
     }
     const clean = () => {
@@ -246,6 +395,15 @@
         return;
       if (!data.torrent_hash && !/\.mkv(?:[?#]|$)/i.test(source)) return;
       if (video.textTracks?.length) return;
+      if (electronAPI.subtitles.watch) {
+        session = attachStream(
+          video,
+          electronAPI.subtitles,
+          (subs) => Lampa.PlayerVideo.listener.send("subs", { subs }),
+          (message) => Lampa.Noty.show(message),
+        );
+        return;
+      }
       let streams = subtitleStreams(data.ffprobe);
       if (!data.ffprobe) {
         probeId = `${Date.now()}-probe-${generation}`;
@@ -278,5 +436,5 @@
       Lampa.PlayerVideo.listener.send("subs", { subs: session.entries });
     });
   }
-  return { install, attachVideo, VttParser, subtitleStreams };
+  return { install, attachVideo, attachStream, VttParser, subtitleStreams };
 });

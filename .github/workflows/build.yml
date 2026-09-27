@@ -45,10 +45,10 @@ jobs:
         run: yarn exec eslint src scripts/verify-electron.cjs
 
       - name: Test application updates and subtitles
-        run: node --test test/autoUpdater.test.cjs test/subtitles.test.cjs
+        run: node --test test/autoUpdater.test.cjs test/subtitles.test.cjs test/matroska.test.cjs
 
       - name: Check changed file formatting
-        run: yarn exec prettier package.json build/subtitle-tools.json scripts/verify-electron.cjs .github/workflows/build.yml src/modules/autoUpdater.js src/modules/windowManager.js src/modules/ipcHandlers/otherHandlers.js src/modules/ipcHandlers/subtitleHandlers.js src/modules/ipcHandlers/index.js src/modules/subtitleExtractor.js src/modules/pluginHandler.js src/subtitleBridge.js src/preload.js src/plugin.js test/*.cjs README.md --check
+        run: yarn exec prettier package.json build/subtitle-tools.json scripts/verify-electron.cjs .github/workflows/build.yml src/modules/autoUpdater.js src/modules/windowManager.js src/modules/ipcHandlers/otherHandlers.js src/modules/ipcHandlers/subtitleHandlers.js src/modules/ipcHandlers/index.js src/modules/subtitleExtractor.js src/modules/matroskaSubtitles.js src/modules/subtitleStream.js src/modules/playerOptionsInterceptor.js src/modules/pluginHandler.js src/subtitleBridge.js src/preload.js src/plugin.js test/*.cjs README.md --check
 
       - name: Download and verify custom Electron
         shell: pwsh
@@ -117,12 +117,14 @@ jobs:
             Enables embedded audio-track switching in the internal player, including torrents played through TorrServer.
             Adds App settings → Check for updates, with background downloads and installation after confirmation.
 
-            New in ac3.5: fixes subtitle initialization when TorrServer supplies subtitles: false.
+            New in ac3.6: reads embedded text subtitle packets directly from the MKV bytes already fetched by the video player.
+            Already buffered languages switch immediately without launching FFmpeg or a second media download.
+            On a seek into a long caption, uses the MKV subtitle index for a bounded byte-range lookup. Files without a subtitle index resume captions from the next received packet.
             Opens developer tools with F12, Ctrl+Shift+I, or App settings → Open console.
             Supports embedded MKV text subtitles (SRT, ASS/SSA, WebVTT) in the internal player through TorrServer, including compatibility with Lampac Tracks menus.
-            Discovers subtitle tracks locally when the server does not provide FFprobe metadata.
+            Discovers subtitle tracks from the MKV header, independently of TorrServer FFprobe metadata.
             Supports language switching, seeking and disabling subtitles. Video and audio are not transcoded.
-            FFmpeg extraction tool is included. Graphical PGS/VobSub tracks require an external player; complex ASS styling is converted to WebVTT text.
+            Graphical PGS/VobSub tracks are unsupported by this reader; complex ASS styling is converted to WebVTT text.
 
             Based on Kolovatoff/lampa-desktop. Updates for this build use ARST113/lampa-desktop.
             Runtime: https://github.com/ARST113/electron/releases/tag/v44.4.4-ac3-eac3

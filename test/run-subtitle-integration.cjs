@@ -8,7 +8,11 @@ execFileSync(
 );
 const env = { ...process.env };
 delete env.ELECTRON_RUN_AS_NODE;
-for (const script of ["subtitles-electron.cjs", "devtools-electron.cjs"]) {
+for (const script of [
+  "subtitles-electron.cjs",
+  "subtitle-navigation-electron.cjs",
+  "devtools-electron.cjs",
+]) {
   const result = spawnSync(
     path.join(root, ".cache/electron-ac3-eac3/electron.exe"),
     [path.join(__dirname, script)],

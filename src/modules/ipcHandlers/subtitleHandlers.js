@@ -40,8 +40,10 @@ function registerSubtitleHandlers(getMainWindow) {
     contents.once("destroyed", clean);
     contents.on(
       "did-start-navigation",
-      (_event, _url, _inPlace, isMainFrame) => {
-        if (isMainFrame) clean();
+      (_event, _url, isInPlace, isMainFrame) => {
+        // Lampa changes history/hash while the same player keeps running.
+        // Only a new document invalidates its subtitle subscription.
+        if (isMainFrame && !isInPlace) clean();
       },
     );
   }

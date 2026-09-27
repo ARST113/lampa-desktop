@@ -117,7 +117,9 @@ jobs:
             Enables embedded audio-track switching in the internal player, including torrents played through TorrServer.
             Adds App settings → Check for updates, with background downloads and installation after confirmation.
 
-            New in ac3.6: reads embedded text subtitle packets directly from the MKV bytes already fetched by the video player.
+            New in ac3.7: fixes subtitles disappearing when Lampa changes its in-page history/hash route while playback continues.
+            The subtitle subscription now stays active until the player closes or the document actually changes.
+            Reads embedded text subtitle packets directly from the MKV bytes already fetched by the video player.
             Already buffered languages switch immediately without launching FFmpeg or a second media download.
             On a seek into a long caption, uses the MKV subtitle index for a bounded byte-range lookup. Files without a subtitle index resume captions from the next received packet.
             Opens developer tools with F12, Ctrl+Shift+I, or App settings → Open console.

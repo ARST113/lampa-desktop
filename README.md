@@ -1,8 +1,8 @@
 # 🎬 Lampa Desktop
 
 ### 📥 Скачать последнюю версию (с поддержкой AC3/EAC3):
-[![Скачать для Windows](https://img.shields.io/badge/Скачать-Windows_x64-0078D6?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/ARST113/lampa-desktop/releases)
-[![Скачать для Linux](https://img.shields.io/badge/Скачать-Linux_x86__64-FCC624?style=for-the-badge&logo=linux&logoColor=black)](https://github.com/ARST113/lampa-desktop/releases)
+[![Скачать для Windows](https://img.shields.io/badge/Скачать-Windows_x64-0078D6?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/ARST113/lampa-desktop/releases/download/v1.6.0-ac3.7/lampa-x64-1.6.0-ac3.7.exe)
+[![Скачать для Linux](https://img.shields.io/badge/Скачать-Linux_x86__64-FCC624?style=for-the-badge&logo=linux&logoColor=black)](https://github.com/ARST113/lampa-desktop/releases/download/v1.6.0-ac3.7/lampa-x86_64-1.6.0-ac3.7-linux-ac3.rpm)
 
 [![Скачать для Linux ARM64](https://img.shields.io/badge/Скачать-Linux_ARM64-FCC624?style=for-the-badge&logo=linux&logoColor=black)](https://github.com/ARST113/lampa-desktop/releases/download/v1.6.0-ac3.7/lampa-aarch64-1.6.0-ac3.7-linux-ac3.rpm)
 

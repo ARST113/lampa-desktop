@@ -4,6 +4,8 @@
 [![Скачать для Windows](https://img.shields.io/badge/Скачать-Windows_x64-0078D6?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/ARST113/lampa-desktop/releases)
 [![Скачать для Linux](https://img.shields.io/badge/Скачать-Linux_x86__64-FCC624?style=for-the-badge&logo=linux&logoColor=black)](https://github.com/ARST113/lampa-desktop/releases)
 
+[![Скачать для Linux ARM64](https://img.shields.io/badge/Скачать-Linux_ARM64-FCC624?style=for-the-badge&logo=linux&logoColor=black)](https://github.com/ARST113/lampa-desktop/releases/download/v1.6.0-ac3.7/lampa-aarch64-1.6.0-ac3.7-linux-ac3.rpm)
+
 [![GitHub All Releases](https://img.shields.io/github/downloads/ARST113/lampa-desktop/total)](https://github.com/ARST113/lampa-desktop/releases)
 [![GitHub Release](https://img.shields.io/github/v/release/ARST113/lampa-desktop?include_prereleases&style=for-the-badge&logo=github)](https://github.com/ARST113/lampa-desktop/releases)
 [![License](https://img.shields.io/github/license/ARST113/lampa-desktop?style=for-the-badge&color=blue)](LICENSE)

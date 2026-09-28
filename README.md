@@ -89,7 +89,7 @@ node scripts/verify-electron.cjs dist/win-unpacked/Lampa.exe dist/win-unpacked/f
 - F - полный экран
 - S - открывает поиск
 - M - открывает левое меню
-
+- F12 - Консоль лампы
 ---
 
 ## 📦 Установка
@@ -99,7 +99,7 @@ node scripts/verify-electron.cjs dist/win-unpacked/Lampa.exe dist/win-unpacked/f
 1. Выберите подходящий установщик:
    - `.exe` — для Windows
    - `.AppImage` / `.deb` / `.rpm` — для Linux
-   - `.dmg` — для macOS
+   - `.dmg` — для macOS (Версси с поддержкой кодеков на данный момент нет)
 2. Установите
 3. [Настройте](docs/quick-start.md)
 4. Приятного просмотра!
@@ -122,7 +122,7 @@ node scripts/verify-electron.cjs dist/win-unpacked/Lampa.exe dist/win-unpacked/f
 
 ## 🛠 Разработка
 
-Документация по этому проекту от ИИ [![DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/Kolovatoff/lampa-desktop)
+Документация по этому проекту от ИИ [![DeepWiki](скоро будет)
 
 Исходный код самой **Lampa** доступен здесь: 👉 [yumata/lampa-source](https://github.com/yumata/lampa-source)
 
@@ -139,10 +139,6 @@ node scripts/verify-electron.cjs dist/win-unpacked/Lampa.exe dist/win-unpacked/f
 
 ---
 
-## 📢 Обратная связь
-
-По вопросам, багам и предложениям — пишите в Telegram:  
-👉 [@lampa_desktop](http://t.me/lampa_desktop) (Группа)
 
 ---
 
@@ -153,8 +149,3 @@ node scripts/verify-electron.cjs dist/win-unpacked/Lampa.exe dist/win-unpacked/f
 
 ---
 
-⭐ Если проект полезен — поставьте звезду
-
-### Поддержать через Robokassa
-
-| 100₽ | 250₽ | 500₽ |

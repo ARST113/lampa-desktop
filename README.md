@@ -55,9 +55,9 @@ node scripts/verify-electron.cjs dist/win-unpacked/Lampa.exe dist/win-unpacked/f
 
 ---
 
-[![GitHub All Releases](https://img.shields.io/endpoint?url=https://lampa.kolovatoff.ru/github/downloads)](https://github.com/Kolovatoff/lampa-desktop/releases)
-[![GitHub Release](https://img.shields.io/github/v/release/Kolovatoff/lampa-desktop?style=for-the-badge&logo=github)](https://github.com/Kolovatoff/lampa-desktop/releases)
-[![License](https://img.shields.io/github/license/Kolovatoff/lampa-desktop?style=for-the-badge&color=blue)](LICENSE)
+[![GitHub All Releases](https://img.shields.io/github/downloads/ARST113/lampa-desktop/total)](https://github.com/ARST113/lampa-desktop/releases)
+[![GitHub Release](https://img.shields.io/github/v/release/ARST113/lampa-desktop?style=for-the-badge&logo=github)](https://github.com/ARST113/lampa-desktop/releases)
+[![License](https://img.shields.io/github/license/ARST113/lampa-desktop?style=for-the-badge&color=blue)](LICENSE)
 
 ![Windows](https://img.shields.io/badge/Windows-0078D6?style=for-the-badge&logo=windows&logoColor=white)
 ![Linux](https://img.shields.io/badge/Linux-FCC624?style=for-the-badge&logo=linux&logoColor=black)

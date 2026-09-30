@@ -6,7 +6,11 @@
 
 [![Скачать для Linux ARM64](https://img.shields.io/badge/Скачать-Linux_ARM64-FCC624?style=for-the-badge&logo=linux&logoColor=black)](https://github.com/ARST113/lampa-desktop/releases/download/v1.6.0-ac3.7/lampa-aarch64-1.6.0-ac3.7-linux-ac3.rpm)
 
+[![Скачать для macOS (Universal)](https://img.shields.io/badge/Скачать-macOS_Universal-000000?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/ARST113/lampa-desktop/releases/download/v1.6.0-ac3.7/lampa-universal-1.6.0-ac3.7-macos-ac3.dmg)
+
 [![Скачать для macOS (Intel)](https://img.shields.io/badge/Скачать-macOS_Intel-000000?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/ARST113/lampa-desktop/releases/download/v1.6.0-ac3.7/lampa-x64-1.6.0-ac3.7-macos-ac3.dmg)
+
+[![Скачать для macOS (Apple Silicon)](https://img.shields.io/badge/Скачать-macOS_ARM64-000000?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/ARST113/lampa-desktop/releases/download/v1.6.0-ac3.7/lampa-arm64-1.6.0-ac3.7-macos-ac3.dmg)
 
 [![GitHub All Releases](https://img.shields.io/github/downloads/ARST113/lampa-desktop/total)](https://github.com/ARST113/lampa-desktop/releases)
 [![GitHub Release](https://img.shields.io/github/v/release/ARST113/lampa-desktop?include_prereleases&style=for-the-badge&logo=github)](https://github.com/ARST113/lampa-desktop/releases)
@@ -19,10 +23,28 @@
 
 ## Windows x64, Linux и macOS с Electron AC3/EAC3
 
-Этот форк собирает Lampa 1.6.0 на **Electron 44.4.4** для Windows x64, Linux x86_64/ARM64 и macOS x64 (Intel).
+Этот форк собирает Lampa 1.6.0 на **Electron 44.4.4** для Windows x64, Linux x86_64/ARM64 и macOS —
+универсальный файл для Intel и Apple Silicon, плюс отдельные сборки под каждый процессор.
 Используется [собранный Electron с флагами AC3/EAC3](https://github.com/ARST113/electron/releases/tag/v44.4.4-ac3-eac3).
 Установщики публикуются в [релизах этого форка](https://github.com/ARST113/lampa-desktop/releases).
 Автообновление также направлено на этот форк.
+
+### macOS Universal — Intel и Apple Silicon в одном DMG
+
+[Скачать DMG](https://github.com/ARST113/lampa-desktop/releases/download/v1.6.0-ac3.7/lampa-universal-1.6.0-ac3.7-macos-ac3.dmg) · [Скачать ZIP](https://github.com/ARST113/lampa-desktop/releases/download/v1.6.0-ac3.7/lampa-universal-1.6.0-ac3.7-macos-ac3.zip) · требуется **macOS 13 Ventura или новее**.
+
+Один файл для любого Mac: внутри и `x86_64`, и `arm64` (проверено `lipo`), Rosetta не нужна.
+Размер больше остальных — 374 МБ, потому что в нём лежат оба рантайма.
+Эту сборку стоит брать, если не хочется думать о процессоре.
+
+### macOS arm64 (Apple Silicon)
+
+[Скачать DMG](https://github.com/ARST113/lampa-desktop/releases/download/v1.6.0-ac3.7/lampa-arm64-1.6.0-ac3.7-macos-ac3.dmg) · [Скачать ZIP](https://github.com/ARST113/lampa-desktop/releases/download/v1.6.0-ac3.7/lampa-arm64-1.6.0-ac3.7-macos-ac3.zip) · 194 МБ, только для Mac на M1/M2/M3/M4.
+
+Проверено запуском на настоящем Apple Silicon (Apple M1, macOS 15) в CI: воспроизведение
+**AC3 5.1 (RMS 0.041)** и **EAC3 7.1 (RMS 0.039)** — звук записан в WAV, а также извлечение
+субтитров встроенным ffmpeg. Рантайм в этой сборке — нативные `arm64`-слайсы Electron 44.4.4
+(Chromium 152.0.7977.130).
 
 ### macOS x64 (Intel)
 
@@ -47,8 +69,7 @@ AC3/EAC3 здесь декодирует системный CoreAudio, поэт�
 на macOS не нужны.
 
 На Mac с Apple Silicon эта сборка работает через **Rosetta 2** (macOS предложит установить её
-при первом запуске). Нативная arm64-версия и универсальный DMG (Intel + Apple Silicon в одном
-файле) собираются отдельно и появятся в этих же релизах.
+при первом запуске) — но проще взять универсальный DMG или arm64-сборку выше, они нативные.
 
 Версия `1.6.0-ac3.7` исправляет потерю субтитров при изменении адреса внутри Lampa:
 переходы history/hash больше не отключают получение текста у работающего плеера.

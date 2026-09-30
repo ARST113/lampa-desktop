@@ -1,0 +1,30 @@
+name: Probe arm64 static ffmpeg
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: macos-15
+    timeout-minutes: 15
+    steps:
+      - name: Download the arm64 ffmpeg and try to run it
+        run: |
+          set -x
+          curl -fL --retry 3 -o /tmp/ffmpeg \
+            https://github.com/eugeneware/ffmpeg-static/releases/latest/download/ffmpeg-darwin-arm64
+          chmod +x /tmp/ffmpeg
+          file /tmp/ffmpeg
+          echo "--- signature before ---"
+          codesign -dv /tmp/ffmpeg 2>&1 | head -5 || echo 'codesign -dv: nothing'
+          echo "--- run before ---"
+          /tmp/ffmpeg -version 2>&1 | head -3
+          echo "exit=$?"
+          echo "--- ad-hoc sign ---"
+          codesign --force --sign - /tmp/ffmpeg && echo signed
+          echo "--- run after ---"
+          /tmp/ffmpeg -version 2>&1 | head -3
+          echo "exit=$?"

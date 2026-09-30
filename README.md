@@ -6,6 +6,8 @@
 
 [![Скачать для Linux ARM64](https://img.shields.io/badge/Скачать-Linux_ARM64-FCC624?style=for-the-badge&logo=linux&logoColor=black)](https://github.com/ARST113/lampa-desktop/releases/download/v1.6.0-ac3.7/lampa-aarch64-1.6.0-ac3.7-linux-ac3.rpm)
 
+[![Скачать для macOS (Intel)](https://img.shields.io/badge/Скачать-macOS_Intel-000000?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/ARST113/lampa-desktop/releases/download/v1.6.0-ac3.7/lampa-x64-1.6.0-ac3.7-macos-ac3.dmg)
+
 [![GitHub All Releases](https://img.shields.io/github/downloads/ARST113/lampa-desktop/total)](https://github.com/ARST113/lampa-desktop/releases)
 [![GitHub Release](https://img.shields.io/github/v/release/ARST113/lampa-desktop?include_prereleases&style=for-the-badge&logo=github)](https://github.com/ARST113/lampa-desktop/releases)
 [![License](https://img.shields.io/github/license/ARST113/lampa-desktop?style=for-the-badge&color=blue)](LICENSE)
@@ -15,12 +17,38 @@
 
 ---
 
-## Windows x64 и Linux с Electron AC3/EAC3
+## Windows x64, Linux и macOS с Electron AC3/EAC3
 
-Этот форк собирает Lampa 1.6.0 на **Electron 44.4.4** для Windows x64 и Linux x86_64.
+Этот форк собирает Lampa 1.6.0 на **Electron 44.4.4** для Windows x64, Linux x86_64/ARM64 и macOS x64 (Intel).
 Используется [собранный Electron с флагами AC3/EAC3](https://github.com/ARST113/electron/releases/tag/v44.4.4-ac3-eac3).
 Установщики публикуются в [релизах этого форка](https://github.com/ARST113/lampa-desktop/releases).
 Автообновление также направлено на этот форк.
+
+### macOS x64 (Intel)
+
+[Скачать DMG](https://github.com/ARST113/lampa-desktop/releases/download/v1.6.0-ac3.7/lampa-x64-1.6.0-ac3.7-macos-ac3.dmg) · [Скачать ZIP](https://github.com/ARST113/lampa-desktop/releases/download/v1.6.0-ac3.7/lampa-x64-1.6.0-ac3.7-macos-ac3.zip) · требуется **macOS 13 Ventura или новее**.
+
+Сборка подписана ad-hoc и не нотаризована, поэтому при первом запуске macOS скажет,
+что разработчик не проверен. Лечится один раз:
+
+```bash
+xattr -dr com.apple.quarantine /Applications/Lampa.app
+```
+
+либо правой кнопкой по приложению → **Открыть**.
+
+FFmpeg/ffprobe для субтитров уже лежат внутри бандла
+(`Lampa.app/Contents/Resources/subtitle-tools`), отдельно устанавливать ничего не нужно.
+
+Что проверено в CI на этой сборке: декодирование **AC3 5.1 и EAC3 7.1** (звук записан в WAV),
+воспроизведение торрента через TorrServer — 30 секунд звука, извлечение субтитров из живого
+потока встроенным ffmpeg (19 дорожек, реальные реплики), запуск приложения и отрисовка окна.
+AC3/EAC3 здесь декодирует системный CoreAudio, поэтому встроенные декодеры FFmpeg для звука
+на macOS не нужны.
+
+На Mac с Apple Silicon эта сборка работает через **Rosetta 2** (macOS предложит установить её
+при первом запуске). Нативная arm64-версия и универсальный DMG (Intel + Apple Silicon в одном
+файле) собираются отдельно и появятся в этих же релизах.
 
 Версия `1.6.0-ac3.7` исправляет потерю субтитров при изменении адреса внутри Lampa:
 переходы history/hash больше не отключают получение текста у работающего плеера.
@@ -62,3 +90,10 @@ yarn install --immutable
 ./scripts/prepare-subtitle-tools.ps1
 yarn build-win
 node scripts/verify-electron.cjs dist/win-unpacked/Lampa.exe dist/win-unpacked/ffmpeg.dll
+
+### Сборка под macOS
+
+Используется ветка `macos/ac3-eac3`: приложение берёт ffmpeg/ffprobe из бандла, поэтому
+статические сборки обеих архитектур упаковываются в `.app` вместе с приложением.
+Готовые сборки переносятся в релизы этого репозитория workflow
+`Publish application builds from the Electron fork`.

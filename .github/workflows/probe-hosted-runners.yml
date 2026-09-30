@@ -1,0 +1,41 @@
+name: Probe hosted runner availability
+
+# Which GitHub-hosted machines are actually reachable for this account: native
+# arm64 Linux, Intel macOS, and the plain x64 images. Public repository, so the
+# standard hosted runners cost nothing.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    name: Probe ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, ubuntu-24.04-arm, macos-13, macos-15]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    steps:
+      - name: Facts
+        run: |
+          echo "RUNNER_OS=$RUNNER_OS RUNNER_ARCH=$RUNNER_ARCH"
+          uname -a
+          uname -m
+          echo "--- disk ---"
+          df -h / | tail -1
+          echo "--- cpu/ram ---"
+          if [ "$RUNNER_OS" = "macOS" ]; then
+            sysctl -n machdep.cpu.brand_string; sysctl -n hw.ncpu; sysctl -n hw.memsize
+          else
+            nproc; free -g | head -2; cat /proc/cpuinfo | grep -m1 'model name' || true
+          fi
+          echo "--- toolchain ---"
+          node --version || true
+          python3 --version || true
+          git --version || true
+          which docker || echo 'no docker'
+          echo "--- network ---"
+          curl -sS -o /dev/null -w 'github.com -> %{http_code}\n' https://github.com

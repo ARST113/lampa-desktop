@@ -1,0 +1,59 @@
+name: Probe hosted arm64 macOS runners
+
+# Отвечает на вопрос: есть ли у нас настоящая Apple Silicon машина для
+# исполнения arm64-сборок Electron (иначе arm64 можно только собрать, но не
+# запустить). Репозиторий публичный, поэтому хостовые раннеры бесплатны.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    name: Probe ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-14, macos-15, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    steps:
+      - name: Runner identity
+        run: |
+          echo "RUNNER_OS=$RUNNER_OS RUNNER_ARCH=$RUNNER_ARCH"
+          echo "image=$ImageOS image_version=$ImageVersion"
+          sw_vers
+          uname -a
+          echo "--- CPU ---"
+          sysctl -n machdep.cpu.brand_string
+          sysctl -n hw.ncpu hw.memsize
+          sysctl -n hw.optional.arm64 2>/dev/null || echo "hw.optional.arm64: absent (Intel)"
+
+      - name: Can it execute arm64 Mach-O?
+        run: |
+          echo "--- native arch of system binaries ---"
+          file /bin/ls
+          echo "--- arm64 slice present in a system dylib ---"
+          lipo -archs /usr/lib/dyld 2>/dev/null || true
+          echo "--- cross-arch execution (Rosetta on arm64) ---"
+          arch -x86_64 uname -m 2>&1 || echo "arch -x86_64: not available"
+
+      - name: Build a tiny arm64 binary and run it
+        run: |
+          cat > hello.c <<'EOF'
+          #include <stdio.h>
+          int main(void){ printf("hello from arm64\n"); return 0; }
+          EOF
+          clang -arch arm64 -o hello-arm64 hello.c
+          file hello-arm64
+          ./hello-arm64
+
+      - name: Toolchain and network
+        run: |
+          xcodebuild -version || true
+          python3 --version
+          node --version || echo "no node"
+          which ffmpeg ffprobe || echo "no ffmpeg/ffprobe in PATH"
+          curl -sS -o /dev/null -w 'github.com -> %{http_code}\n' https://github.com
+          df -h / | tail -1

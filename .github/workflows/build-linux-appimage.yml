@@ -1,0 +1,110 @@
+name: Build Linux AppImage AC3-EAC3
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/build-linux-appimage.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: lampa-linux-appimage-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  appimage:
+    name: AppImage ${{ matrix.arch }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x64
+            release_tag: v44.4.4-linux-x64-ac3-eac3-r4a1
+            asset: electron-v44.4.4-linux-x64-ac3-eac3.zip
+            sha256: 7a226ac795109fd2e5cb1916ae2205f96c0588d16d3bb9243404e70bd76f2336
+            file_arch: x86-64
+          - arch: arm64
+            release_tag: v44.4.4-linux-arm64-ac3-eac3-r5a1
+            asset: electron-v44.4.4-linux-arm64-ac3-eac3.zip
+            sha256: 574eb5508386a0870bd219b9804b9c19360defb74a08ca6194037d3c6da09bd0
+            file_arch: aarch64
+
+    env:
+      ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
+
+    steps:
+      - name: Checkout Lampa Desktop
+        uses: actions/checkout@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+
+      - name: Install pinned Yarn
+        run: |
+          corepack enable
+          corepack prepare yarn@4.9.4 --activate
+
+      - name: Install dependencies
+        run: yarn install --immutable
+
+      - name: Download verified custom Electron runtime
+        env:
+          RELEASE_TAG: ${{ matrix.release_tag }}
+          ASSET: ${{ matrix.asset }}
+          EXPECTED_SHA256: ${{ matrix.sha256 }}
+          EXPECTED_FILE_ARCH: ${{ matrix.file_arch }}
+        run: |
+          set -euo pipefail
+          mkdir -p .cache/electron-ac3-eac3
+          curl -fL --retry 3 --retry-delay 5             -o .cache/electron-runtime.zip             "https://github.com/ARST113/electron/releases/download/${RELEASE_TAG}/${ASSET}"
+
+          echo "${EXPECTED_SHA256}  .cache/electron-runtime.zip" | sha256sum -c -
+          unzip -q -o .cache/electron-runtime.zip -d .cache/electron-ac3-eac3
+
+          test "$(tr -d '\r\n' < .cache/electron-ac3-eac3/version)" = "44.4.4"
+          file .cache/electron-ac3-eac3/electron
+          file .cache/electron-ac3-eac3/electron | grep -q "${EXPECTED_FILE_ARCH}"
+
+          strings -a .cache/electron-ac3-eac3/libffmpeg.so | grep -q 'ff_ac3_decoder'
+          strings -a .cache/electron-ac3-eac3/libffmpeg.so | grep -q 'ff_eac3_decoder'
+
+      - name: Use native Linux subtitle tools
+        run: |
+          node <<'NODE'
+          const fs = require("node:fs");
+          const p = JSON.parse(fs.readFileSync("package.json", "utf8"));
+          delete p.build.extraResources;
+          fs.writeFileSync("package.json", JSON.stringify(p, null, 2) + "\n");
+          NODE
+
+      - name: Build AppImage
+        run: yarn exec electron-builder --linux AppImage --${{ matrix.arch }} --publish=never
+
+      - name: Verify AppImage architecture and checksum
+        run: |
+          set -euo pipefail
+          mapfile -t files < <(find dist -maxdepth 1 -type f -name '*.AppImage' -print)
+          test "${#files[@]}" -eq 1
+          file "${files[0]}"
+          file "${files[0]}" | grep -q "${{ matrix.file_arch }}"
+          sha256sum "${files[0]}" | tee "dist/SHASUMS256-${{ matrix.arch }}-AppImage.txt"
+          ls -lh "${files[0]}"
+
+      - name: Upload AppImage
+        uses: actions/upload-artifact@v6
+        with:
+          name: lampa-linux-${{ matrix.arch }}-appimage-ac3-eac3
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 30
+          path: |
+            dist/*.AppImage
+            dist/SHASUMS256-${{ matrix.arch }}-AppImage.txt

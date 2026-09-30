@@ -1,0 +1,92 @@
+name: Publish application builds from the Electron fork
+
+# Mirrors finished Lampa builds from the Electron fork's releases into the
+# releases of this repository, so every platform is downloadable from one place.
+# Generic on purpose: it copies whatever asset names it is given, so Linux RPMs
+# and future macOS arm64/universal builds use the same path.
+on:
+  workflow_dispatch:
+    inputs:
+      source_release:
+        description: 'Release tag in ARST113/electron holding the application build'
+        required: true
+      target_release:
+        description: 'Release tag in this repository that receives the files'
+        required: true
+        default: 'v1.6.0-ac3.7'
+      assets:
+        description: 'Space separated asset names to copy'
+        required: true
+        default: 'lampa-x64-1.6.0-ac3.7-macos-ac3.dmg lampa-x64-1.6.0-ac3.7-macos-ac3.zip'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: publish-application-builds
+  cancel-in-progress: false
+
+jobs:
+  mirror:
+    name: Mirror builds into ${{ inputs.target_release }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Download from the Electron fork
+        env:
+          SOURCE_RELEASE: ${{ inputs.source_release }}
+          ASSETS: ${{ inputs.assets }}
+        run: |
+          set -euo pipefail
+          mkdir -p assets
+          for name in $ASSETS; do
+            echo "Fetching $name"
+            curl -fL --retry 3 --retry-delay 5 -o "assets/$name" \
+              "https://github.com/ARST113/electron/releases/download/$SOURCE_RELEASE/$name"
+          done
+          ls -lh assets
+
+      - name: Upload into the target release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_RELEASE: ${{ inputs.target_release }}
+        run: |
+          set -euo pipefail
+          gh release upload "$TARGET_RELEASE" assets/* --clobber --repo "$GITHUB_REPOSITORY"
+
+      - name: Refresh SHASUMS256.txt
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_RELEASE: ${{ inputs.target_release }}
+        run: |
+          set -euo pipefail
+
+          mkdir -p sums
+          gh release download "$TARGET_RELEASE" --pattern SHASUMS256.txt --dir sums --clobber --repo "$GITHUB_REPOSITORY"
+          cp sums/SHASUMS256.txt SHASUMS256.txt
+
+          for file in assets/*; do
+            name=$(basename "$file")
+            grep -v "  ${name}$" SHASUMS256.txt > SHASUMS256.new || true
+            mv SHASUMS256.new SHASUMS256.txt
+            ( cd assets && sha256sum "$name" ) >> SHASUMS256.txt
+          done
+          sort -k2 SHASUMS256.txt -o SHASUMS256.txt
+          cat SHASUMS256.txt
+
+          asset_id=$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$TARGET_RELEASE" \
+            --jq '.assets[] | select(.name == "SHASUMS256.txt") | .id')
+          if [ -n "$asset_id" ]; then
+            gh api -X DELETE "repos/$GITHUB_REPOSITORY/releases/assets/$asset_id"
+          fi
+          gh release upload "$TARGET_RELEASE" SHASUMS256.txt --repo "$GITHUB_REPOSITORY"
+
+      - name: Summarize
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_RELEASE: ${{ inputs.target_release }}
+        run: |
+          set -euo pipefail
+          gh release view "$TARGET_RELEASE" --repo "$GITHUB_REPOSITORY" --json assets \
+            --jq '.assets[] | "\(.name) \(.size) bytes"' | sort | tee -a "$GITHUB_STEP_SUMMARY"

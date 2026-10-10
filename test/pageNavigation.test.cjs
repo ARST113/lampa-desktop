@@ -50,6 +50,14 @@ test("permits same-site navigation and HTTP to HTTPS upgrade", () => {
   );
   assert.equal(
     isInternalNavigation(
+      "https://cf.lampa.mx/",
+      "http://lampa.mx/",
+      "http://lampa.mx/",
+    ),
+    true,
+  );
+  assert.equal(
+    isInternalNavigation(
       "https://unrelated.example.org/",
       "https://lampac.fun/",
       "https://lampac.fun/",
@@ -65,6 +73,10 @@ test("permits same-site navigation and HTTP to HTTPS upgrade", () => {
 test("fallback matches redirects but ignores obsolete failure events", () => {
   assert.equal(
     isSameNavigation("https://lampac.fun/home", "http://lampac.fun/"),
+    true,
+  );
+  assert.equal(
+    isSameNavigation("https://cf.lampa.mx/", "http://lampa.mx/"),
     true,
   );
   assert.equal(

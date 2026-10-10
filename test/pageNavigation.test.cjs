@@ -6,9 +6,8 @@ const {
   DEFAULT_LAMPA_URL,
   normalizeHttpUrl,
   isInternalNavigation,
-  createLoadFailureHtml,
-  createLoadFailureUrl,
 } = require("../src/modules/pageNavigation");
+const { isSameNavigation } = require("../src/modules/navigationFallback");
 
 test("accepts any full HTTP or HTTPS URL", () => {
   assert.equal(normalizeHttpUrl(" http://lampac.fun/ "), "http://lampac.fun/");
@@ -63,38 +62,42 @@ test("permits same-site navigation and HTTP to HTTPS upgrade", () => {
   );
 });
 
-test("error screen escapes untrusted error content", () => {
-  const html = createLoadFailureHtml({
-    url: 'https://invalid.example/?x="><script>alert(1)</script>',
-    code: -105,
-    description: "<bad network>",
-  });
-  assert.match(html, /Не удалось загрузить Lampa/);
-  assert.match(html, /Ошибка: -105/);
-  assert.match(html, /&lt;script&gt;alert\(1\)&lt;\/script&gt;/);
-  assert.doesNotMatch(html, /<script>alert\(1\)<\/script>/);
-  assert.match(html, /window\.electronAPI\.loadUrl/);
-  const target = createLoadFailureUrl({ code: -105 });
-  assert.ok(target.startsWith("data:text/html;charset=utf-8,"));
-  assert.match(decodeURIComponent(target.split(",")[1]), /<!doctype html>/);
+test("fallback matches redirects but ignores obsolete failure events", () => {
+  assert.equal(
+    isSameNavigation("https://lampac.fun/home", "http://lampac.fun/"),
+    true,
+  );
+  assert.equal(
+    isSameNavigation("https://another.example/", "http://lampac.fun/"),
+    false,
+  );
+  assert.equal(
+    isSameNavigation("http://127.0.0.1:8800/", "http://127.0.0.1:8801/"),
+    false,
+  );
 });
 
-test("error recovery hooks are wired to IPC", () => {
+test("failed URL handling never displays a recovery HTML page", () => {
   const root = path.join(__dirname, "..", "src");
   const manager = fs.readFileSync(
     path.join(root, "modules", "windowManager.js"),
     "utf8",
   );
-  const preload = fs.readFileSync(path.join(root, "preload.js"), "utf8");
+  const fallback = fs.readFileSync(
+    path.join(root, "modules", "navigationFallback.js"),
+    "utf8",
+  );
+  assert.match(manager, /createNavigationFallback/);
+  assert.match(manager, /onReady: showReadyWindow/);
+  assert.match(fallback, /store\.set\("lampaUrl", fallbackUrl\)/);
+  assert.doesNotMatch(manager + fallback, /createLoadFailureUrl|document\.write/);
+});
+
+test("manual URL changes go through the fallback controller", () => {
+  const root = path.join(__dirname, "..", "src");
   const ipc = fs.readFileSync(
     path.join(root, "modules", "ipcHandlers", "windowHandlers.js"),
     "utf8",
   );
-
-  assert.match(manager, /did-fail-load/);
-  assert.match(manager, /isInternalNavigation/);
-  assert.doesNotMatch(manager, /document\.write\(/);
-  assert.match(preload, /ipcRenderer\.send\("reload-page", url\)/);
-  assert.match(ipc, /ipcMain\.on\("reload-page"/);
-  assert.match(ipc, /store\.set\("lampaUrl", target\)/);
+  assert.match(ipc, /openLampaUrl\(mainWindow, target\)/);
 });

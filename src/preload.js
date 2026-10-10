@@ -62,7 +62,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
   toggleFullscreen: () => ipcRenderer.send("toggle-fullscreen"),
   getFullscreenMode: () => ipcRenderer.invoke("get-fullscreen-mode"),
   setFullscreenMode: (mode) => ipcRenderer.invoke("set-fullscreen-mode", mode),
-  loadUrl: (url) => ipcRenderer.send("load-url", url),
+  loadUrl: (url) => ipcRenderer.send("reload-page", url),
   checkAppUpdates: () => ipcRenderer.invoke("app-check-updates"),
   openDevTools: () => ipcRenderer.invoke("open-devtools"),
   subtitles: {

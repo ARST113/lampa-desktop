@@ -47,14 +47,22 @@ app
 
     server = http.createServer((req, res) => {
       res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
-      if (req.url === "/blank") {
-        res.end("<!doctype html><title>Empty page</title>");
+      if (req.url === "/blank" || req.url === "/unready") {
+        res.end(
+          '<!doctype html><title>Not ready</title><body>' +
+            "<script>window.Lampa = {};</script></body>",
+        );
         return;
       }
       res.end(
         `<!doctype html><title>Lampa local test</title>
-        <body><div id="ready">Local Lampa loaded</div>
-        <script>window.Lampa = {};</script></body>`,
+        <body><div id="app">
+          <div class="head"></div>
+          <div class="wrap" style="width:800px;height:600px">
+            <div class="wrap__content"><div id="ready">Local Lampa loaded</div></div>
+          </div>
+        </div>
+        <script>window.Lampa = {};window.appready = true;</script></body>`,
       );
     });
     await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
@@ -64,6 +72,7 @@ app
     const window = createTestWindow();
     let readyCount = 0;
     let defaultFailures = 0;
+    const registerStoreHandlers = require("../src/modules/ipcHandlers/storeHandlers");
     const navigation = createNavigationFallback(window, store, {
       defaultUrl: base,
       timeoutMs: 1100,
@@ -76,6 +85,11 @@ app
         defaultFailures += 1;
       },
     });
+    registerStoreHandlers(store, {
+      getMainWindow: () => window,
+      openLampaUrl: (_mainWindow, url) => navigation.open(url),
+    });
+
     navigation.open("http://127.0.0.1:65534/wrong");
     assert.equal(window.isVisible(), false);
     await until(() => readyCount === 1, "Failed URL did not fall back.");
@@ -104,6 +118,51 @@ app
     await until(() => readyCount === 3, "Malformed URL did not open default.");
     assert.equal(window.webContents.getURL(), base);
     console.log("PASS: malformed URL opens the default directly.");
+
+    // Regression: the settings UI writes via electronAPI.store.set, not
+    // navigation.open. That IPC route previously called loadURL twice.
+    await window.webContents.executeJavaScript(
+      "window.electronAPI.store.set('lampaUrl', 'http://127.0.0.1:65534/typo')",
+    );
+    await until(
+      () => readyCount === 4,
+      "Settings store change did not fall back.",
+    );
+    assert.equal(window.webContents.getURL(), base);
+    assert.equal(store.get("lampaUrl"), base);
+    console.log("PASS: settings IPC typo returns to default without competing navigation.");
+
+    // A subsequent correct URL must also load, preserving the new address.
+    const correct = base + "?correct=1";
+    await window.webContents.executeJavaScript(
+      `window.electronAPI.store.set("lampaUrl", ${JSON.stringify(correct)})`,
+    );
+    await until(
+      () => readyCount === 5,
+      "A valid URL entered after a typo did not load.",
+    );
+    assert.equal(window.webContents.getURL(), correct);
+    assert.equal(store.get("lampaUrl"), correct);
+    console.log("PASS: settings IPC accepts correct address after a failed one.");
+
+    // window.Lampa alone must not mark a non-rendered page as ready.
+    navigation.open(base + "unready");
+    await until(
+      () => readyCount === 6,
+      "Page with window.Lampa but without the interface was accepted.",
+    );
+    assert.equal(window.webContents.getURL(), base);
+    console.log("PASS: global window.Lampa without rendered UI falls back.");
+
+    // A malformed store request must be rejected before it is persisted.
+    await assert.rejects(
+      window.webContents.executeJavaScript(
+        "window.electronAPI.store.set('lampaUrl', 'javascript:alert(1)')",
+      ),
+    );
+    assert.equal(store.get("lampaUrl"), base);
+    console.log("PASS: invalid setting is rejected without navigation.");
+
 
     // When even the default fails, notify once rather than looping forever.
     const second = createTestWindow();

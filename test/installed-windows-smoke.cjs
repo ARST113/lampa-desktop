@@ -183,10 +183,21 @@ async function main() {
       );
     }
 
-    const content = await evaluate(
-      tab,
-      "document.querySelector('#smoke-ready')?.textContent || null",
-    );
+    let content = null;
+    // CDP exposes the page target before the main document finishes painting.
+    // Poll for the actual fixture instead of sampling the initial blank DOM.
+    for (let attempt = 0; attempt < 40; attempt++) {
+      try {
+        content = await evaluate(
+          tab,
+          "document.querySelector('#smoke-ready')?.textContent || null",
+        );
+        if (content === "Windows installer works") break;
+      } catch (error) {
+        console.warn("Renderer not ready yet:", error.message);
+      }
+      await delay(200);
+    }
     assert.equal(content, "Windows installer works");
     assert.equal(
       fs.existsSync(path.join(path.dirname(executable), "portable.flag")),

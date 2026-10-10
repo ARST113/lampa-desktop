@@ -3,6 +3,21 @@ const { DEFAULT_LAMPA_URL, normalizeHttpUrl } = require("./pageNavigation");
 const STARTUP_TIMEOUT_MS = 15000;
 const READINESS_POLL_MS = 250;
 
+const LAMPA_RENDERED_SCRIPT = `(() => {
+  const root = document.getElementById("app");
+  const shell = root?.querySelector(".wrap");
+  const head = root?.querySelector(".head");
+  const content = root?.querySelector(".wrap__content");
+  return Boolean(
+    window.Lampa &&
+    window.appready === true &&
+    head &&
+    shell &&
+    content &&
+    shell.getBoundingClientRect().width > 0
+  );
+})()`;
+
 function createNavigationFallback(
   window,
   store,
@@ -58,8 +73,13 @@ function createNavigationFallback(
   async function checkReady(id) {
     if (!isCurrent(id)) return;
 
+    // A global Lampa object exists long before the user interface is drawn.
+    // Lampa's app.js sets appready only after Render.app() has completed.
+    // Checking actual layout elements prevents treating a dark/empty page as ready.
+    if (!isSameNavigation(window.webContents.getURL(), current.url)) return;
+
     const ready = await window.webContents
-      .executeJavaScript("Boolean(window.Lampa && document.body)", true)
+      .executeJavaScript(LAMPA_RENDERED_SCRIPT, true)
       .catch(() => false);
     if (!isCurrent(id)) return;
 
@@ -143,4 +163,5 @@ module.exports = {
   createNavigationFallback,
   isSameNavigation,
   STARTUP_TIMEOUT_MS,
+  LAMPA_RENDERED_SCRIPT,
 };

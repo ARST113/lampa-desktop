@@ -5,7 +5,17 @@ const lampaInitializer = require("./lampaInitializer");
 function setupPluginHandler(mainWindow) {
   mainWindow.webContents.on("did-finish-load", async () => {
     try {
-      await waitForLampaReady(mainWindow);
+      // The data: recovery screen and unrelated websites must not start a
+      // permanent Lampa readiness polling loop.
+      const currentUrl = mainWindow.webContents.getURL();
+      if (!/^https?:\\/\\//i.test(currentUrl)) return;
+
+      const ready = await waitForLampaReady(mainWindow);
+      if (!ready) {
+        console.log("Lampa API was not detected on this page.");
+        return;
+      }
+
       await lampaInitializer.initialize(mainWindow);
       injectPlugin(mainWindow);
     } catch (err) {
@@ -15,20 +25,24 @@ function setupPluginHandler(mainWindow) {
 }
 
 async function waitForLampaReady(mainWindow) {
-  return new Promise((resolve) => {
-    const check = async () => {
-      const isReady = await mainWindow.webContents
-        .executeJavaScript("window.Lampa !== undefined", true)
-        .catch(() => false);
+  // A bad URL or a non-Lampa page must not poll the renderer forever.
+  for (let attempt = 0; attempt < 150; attempt++) {
+    if (
+      mainWindow.isDestroyed() ||
+      mainWindow.webContents.isDestroyed() ||
+      !/^https?:\\/\\//i.test(mainWindow.webContents.getURL())
+    ) {
+      return false;
+    }
 
-      if (isReady) {
-        resolve();
-      } else {
-        setTimeout(check, 100);
-      }
-    };
-    check();
-  });
+    const isReady = await mainWindow.webContents
+      .executeJavaScript("Boolean(window.Lampa)", true)
+      .catch(() => false);
+    if (isReady) return true;
+
+    await new Promise((resolve) => setTimeout(resolve, 200));
+  }
+  return false;
 }
 
 function injectPlugin(mainWindow) {

@@ -325,4 +325,6 @@ function setupWindowOpenHandler(mainWindow) {
 module.exports = {
   createWindow,
   getMainWindow,
+  setupNavigationHandlers,
+  setupErrorHandler,
 };

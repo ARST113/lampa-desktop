@@ -288,7 +288,8 @@ function setupErrorHandler(window, { onReady = () => window.show() } = {}) {
 
 function openLampaUrl(window, url) {
   const navigation = navigationControllers.get(window);
-  if (!navigation) throw new Error("Lampa navigation has not been initialized.");
+  if (!navigation)
+    throw new Error("Lampa navigation has not been initialized.");
   navigation.open(url);
 }
 

@@ -40,7 +40,9 @@ function createTestWindow() {
 app
   .whenReady()
   .then(async () => {
-    const { createNavigationFallback } = require("../src/modules/navigationFallback");
+    const {
+      createNavigationFallback,
+    } = require("../src/modules/navigationFallback");
     const store = require("../src/modules/storeManager");
 
     server = http.createServer((req, res) => {
@@ -74,7 +76,8 @@ app
         defaultFailures += 1;
       },
     });
-    navigation.open("http://127.0.0.1:1/wrong");
+    navigation.open("http://127.0.0.1:65534/wrong");
+    assert.equal(window.isVisible(), false);
     await until(() => readyCount === 1, "Failed URL did not fall back.");
     assert.equal(window.webContents.getURL(), base);
     assert.equal(store.get("lampaUrl"), base);
@@ -83,7 +86,9 @@ app
       "document.getElementById('ready')?.textContent",
     );
     assert.equal(rendered, "Local Lampa loaded");
-    console.log("PASS: invalid network address switches to Lampa without white screen.");
+    console.log(
+      "PASS: invalid network address switches to Lampa without white screen.",
+    );
 
     // Valid but empty HTML must also fall back instead of staying blank.
     window.hide();
@@ -112,11 +117,16 @@ app
       },
     });
     missingDefault.open("definitely invalid");
-    await until(() => unavailable === 1, "Unreachable default was not reported.");
+    await until(
+      () => unavailable === 1,
+      "Unreachable default was not reported.",
+    );
     await new Promise((resolve) => setTimeout(resolve, 400));
     assert.equal(unavailable, 1);
     assert.equal(second.isVisible(), false);
-    console.log("PASS: unreachable default stops retrying and never shows white.");
+    console.log(
+      "PASS: unreachable default stops retrying and never shows white.",
+    );
 
     clearTimeout(watchdog);
     for (const item of windows) item.destroy();

@@ -28,7 +28,9 @@ test("ZIP-only marker no longer enables a separate profile", () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "lampa-former-zip-"));
   try {
     fs.writeFileSync(path.join(root, "portable.flag"), "unused");
-    const app = { setPath: () => assert.fail("must not alter installed profile") };
+    const app = {
+      setPath: () => assert.fail("must not alter installed profile"),
+    };
     const options = {
       env: {},
       execPath: path.join(root, "Lampa.exe"),

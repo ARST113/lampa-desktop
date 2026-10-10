@@ -2,6 +2,7 @@ const { DEFAULT_LAMPA_URL, normalizeHttpUrl } = require("./pageNavigation");
 
 const STARTUP_TIMEOUT_MS = 30000;
 const READINESS_POLL_MS = 250;
+const EMERGENCY_LAMPA_URL = "https://cf.lampa.mx/";
 
 const LAMPA_RENDERED_SCRIPT = `(() => {
   const root = document.getElementById("app");
@@ -26,6 +27,12 @@ function createNavigationFallback(
   } = {},
 ) {
   const fallbackUrl = normalizeHttpUrl(defaultUrl);
+  // Alternative official HTTPS host is used only for the actual default,
+  // never for tests or independently configured fallbacks.
+  const backupUrl =
+    fallbackUrl === normalizeHttpUrl(DEFAULT_LAMPA_URL)
+      ? EMERGENCY_LAMPA_URL
+      : null;
   let current = null;
   let attemptNumber = 0;
   let timeout = null;
@@ -55,14 +62,21 @@ function createNavigationFallback(
     current = null;
     console.error("Не удалось запустить Lampa:", failed, reason);
 
-    if (failed !== fallbackUrl) {
-      // A bad custom address must never become a persistent white screen.
+    if (failed !== fallbackUrl && failed !== backupUrl) {
+      // Failed custom settings must not persist across restarts.
       store.set("lampaUrl", fallbackUrl);
       open(fallbackUrl);
       return;
     }
 
-    // A broken default URL cannot fall back to itself forever.
+    if (failed === fallbackUrl && backupUrl) {
+      console.warn("Основной адрес Lampa недоступен, пробуем резервный:", backupUrl);
+      store.set("lampaUrl", backupUrl);
+      open(backupUrl);
+      return;
+    }
+
+    // No infinite retry loop when all available entry points fail.
     onUnavailable(reason);
   }
 
@@ -165,5 +179,6 @@ module.exports = {
   createNavigationFallback,
   isSameNavigation,
   STARTUP_TIMEOUT_MS,
+  EMERGENCY_LAMPA_URL,
   LAMPA_RENDERED_SCRIPT,
 };

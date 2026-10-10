@@ -1,16 +1,13 @@
-const { BrowserWindow, screen } = require("electron");
+const { BrowserWindow, screen, dialog } = require("electron");
 const path = require("node:path");
 const store = require("./storeManager");
 const { setupPluginHandler } = require("./pluginHandler");
 const { setupDevTools } = require("./devTools");
-const {
-  DEFAULT_LAMPA_URL,
-  normalizeHttpUrl,
-  isInternalNavigation,
-  createLoadFailureUrl,
-} = require("./pageNavigation");
+const { DEFAULT_LAMPA_URL, isInternalNavigation } = require("./pageNavigation");
+const { createNavigationFallback } = require("./navigationFallback");
 
 let mainWindow = null;
+const navigationControllers = new WeakMap();
 
 function getFullscreenConfig() {
   const mode = store.get("fullscreenMode", "last");
@@ -121,7 +118,8 @@ function createWindow() {
 
   mainWindow.setMenu(null);
 
-  mainWindow.once("ready-to-show", () => {
+  const showReadyWindow = () => {
+    if (mainWindow.isDestroyed() || mainWindow.isVisible()) return;
     if (savedState && !fullscreenConfig.shouldShowFullscreen) {
       try {
         mainWindow.setBounds({
@@ -141,35 +139,17 @@ function createWindow() {
     if (process.platform === "darwin") {
       mainWindow.focus();
     }
-  });
+  };
 
   setupNavigationHandlers(mainWindow);
-  setupErrorHandler(mainWindow);
+  const navigation = setupErrorHandler(mainWindow, {
+    onReady: showReadyWindow,
+  });
+  navigationControllers.set(mainWindow, navigation);
   setupWindowOpenHandler(mainWindow);
   setupPluginHandler(mainWindow);
 
-  const lampaUrl = store.get("lampaUrl", DEFAULT_LAMPA_URL);
-  try {
-    mainWindow.loadURL(normalizeHttpUrl(lampaUrl)).catch((error) => {
-      console.error("Ошибка открытия Lampa:", error);
-    });
-  } catch (error) {
-    console.error("Недопустимый сохранённый адрес Lampa:", error);
-    mainWindow
-      .loadURL(
-        createLoadFailureUrl({
-          url: lampaUrl,
-          code: "INVALID_URL",
-          description: error.message,
-        }),
-      )
-      .catch((navigationError) => {
-        console.error(
-          "Ошибка открытия экрана восстановления:",
-          navigationError,
-        );
-      });
-  }
+  navigation.open(store.get("lampaUrl", DEFAULT_LAMPA_URL));
 
   const saveState = () => {
     if (
@@ -271,57 +251,44 @@ function setupNavigationHandlers(window) {
   });
 }
 
-function setupErrorHandler(window) {
-  let recoveryShown = false;
+function setupErrorHandler(window, { onReady = () => window.show() } = {}) {
+  let navigation;
 
-  window.webContents.on(
-    "did-start-navigation",
-    (_event, url, _inPlace, isMainFrame) => {
-      if (
-        isMainFrame &&
-        (url.startsWith("http://") || url.startsWith("https://"))
-      ) {
-        recoveryShown = false;
-      }
+  navigation = createNavigationFallback(window, store, {
+    onReady,
+    onUnavailable(error) {
+      console.error("Стандартный сервер Lampa тоже недоступен:", error);
+      if (window.isDestroyed()) return;
+
+      // A native dialog is shown instead of a blank renderer or an error page.
+      void dialog
+        .showMessageBox({
+          type: "error",
+          title: "Lampa недоступна",
+          message: "Не удалось открыть стандартный адрес http://lampa.mx.",
+          detail: "Проверьте подключение к интернету и повторите попытку.",
+          buttons: ["Повторить", "Закрыть"],
+          defaultId: 0,
+          cancelId: 1,
+        })
+        .then(({ response }) => {
+          if (window.isDestroyed()) return;
+          if (response === 0) navigation.open(DEFAULT_LAMPA_URL);
+          else window.close();
+        })
+        .catch((dialogError) => {
+          console.error("Ошибка диалога загрузки:", dialogError);
+        });
     },
-  );
+  });
 
-  window.webContents.on(
-    "did-fail-load",
-    (_event, errorCode, errorDescription, validatedURL, isMainFrame) => {
-      // ERR_ABORTED happens during redirects, navigation changes, and reloads.
-      // An iframe failure must not replace the whole desktop application.
-      if (
-        isMainFrame === false ||
-        errorCode === -3 ||
-        recoveryShown ||
-        window.isDestroyed() ||
-        window.webContents.isDestroyed()
-      ) {
-        return;
-      }
+  return navigation;
+}
 
-      recoveryShown = true;
-      console.error("Не удалось загрузить Lampa:", {
-        errorCode,
-        errorDescription,
-        validatedURL,
-      });
-
-      const failurePage = createLoadFailureUrl({
-        url: validatedURL || store.get("lampaUrl", DEFAULT_LAMPA_URL),
-        code: errorCode,
-        description: errorDescription,
-      });
-
-      // Navigating to a real HTML document works even when the original
-      // navigation failed before any DOM could be created.
-      window.webContents.loadURL(failurePage).catch((error) => {
-        console.error("Не удалось отобразить экран восстановления:", error);
-      });
-      if (!window.isVisible()) window.show();
-    },
-  );
+function openLampaUrl(window, url) {
+  const navigation = navigationControllers.get(window);
+  if (!navigation) throw new Error("Lampa navigation has not been initialized.");
+  navigation.open(url);
 }
 
 function setupWindowOpenHandler(mainWindow) {
@@ -338,4 +305,5 @@ module.exports = {
   getMainWindow,
   setupNavigationHandlers,
   setupErrorHandler,
+  openLampaUrl,
 };

@@ -3,6 +3,12 @@ const path = require("node:path");
 const store = require("./storeManager");
 const { setupPluginHandler } = require("./pluginHandler");
 const { setupDevTools } = require("./devTools");
+const {
+  DEFAULT_LAMPA_URL,
+  normalizeHttpUrl,
+  isInternalNavigation,
+  createLoadFailureUrl,
+} = require("./pageNavigation");
 
 let mainWindow = null;
 
@@ -137,10 +143,30 @@ function createWindow() {
     }
   });
 
-  const lampaUrl = store.get("lampaUrl");
-  mainWindow.loadURL(lampaUrl);
-
+  setupNavigationHandlers(mainWindow);
+  setupErrorHandler(mainWindow);
+  setupWindowOpenHandler(mainWindow);
   setupPluginHandler(mainWindow);
+
+  const lampaUrl = store.get("lampaUrl", DEFAULT_LAMPA_URL);
+  try {
+    mainWindow.loadURL(normalizeHttpUrl(lampaUrl)).catch((error) => {
+      console.error("Ошибка открытия Lampa:", error);
+    });
+  } catch (error) {
+    console.error("Недопустимый сохранённый адрес Lampa:", error);
+    mainWindow
+      .loadURL(
+        createLoadFailureUrl({
+          url: lampaUrl,
+          code: "INVALID_URL",
+          description: error.message,
+        }),
+      )
+      .catch((navigationError) => {
+        console.error("Ошибка открытия экрана восстановления:", navigationError);
+      });
+  }
 
   const saveState = () => {
     if (
@@ -196,10 +222,6 @@ function createWindow() {
     mainWindow = null;
   });
 
-  setupNavigationHandlers(mainWindow);
-  setupErrorHandler(mainWindow);
-  setupWindowOpenHandler(mainWindow);
-
   if (process.argv.includes("--dev")) {
     mainWindow.webContents.openDevTools();
   }
@@ -207,149 +229,86 @@ function createWindow() {
   return mainWindow;
 }
 
-function setupNavigationHandlers(mainWindow) {
-  let isReloadingFromHandler = false;
-
-  mainWindow.webContents.on(
-    "did-start-navigation",
-    (event, url, isInPlace, isMainFrame) => {
-      const currentUrl = mainWindow.webContents.getURL();
-
-      if (isMainFrame && url === currentUrl) {
-        console.log("Reload request detected");
-
-        if (!isReloadingFromHandler && event.initiator) {
-          console.log("Preventing default reload and using Electron reload");
-          event.preventDefault();
-
-          isReloadingFromHandler = true;
-          setTimeout(() => {
-            mainWindow.webContents.reload();
-            setTimeout(() => {
-              isReloadingFromHandler = false;
-            }, 100);
-          }, 10);
-        }
-      }
-    },
-  );
-
-  mainWindow.webContents.on("will-navigate", (event, navigationUrl) => {
-    const parsedUrl = new URL(navigationUrl);
-
-    // исправление запуска плееров на MacOS
-    const allowedProtocols = ["mpv:", "iina:", "infuse:", "senplayer:"];
-    if (allowedProtocols.includes(parsedUrl.protocol)) {
+function setupNavigationHandlers(window) {
+  const { shell } = require("electron");
+  window.webContents.on("will-navigate", (event, navigationUrl) => {
+    let parsedUrl;
+    try {
+      parsedUrl = new URL(navigationUrl);
+    } catch {
+      event.preventDefault();
       return;
     }
 
-    if (parsedUrl.origin === "file://") {
+    // External player protocols should launch in the operating system,
+    // not replace the embedded Lampa document.
+    if (["mpv:", "iina:", "infuse:", "senplayer:"].includes(parsedUrl.protocol)) {
+      event.preventDefault();
+      shell.openExternal(navigationUrl).catch((error) => {
+        console.error("Ошибка открытия внешнего плеера:", error);
+      });
       return;
     }
+
+    if (
+      isInternalNavigation(
+        navigationUrl,
+        window.webContents.getURL(),
+        store.get("lampaUrl", DEFAULT_LAMPA_URL),
+      )
+    ) {
+      return;
+    }
+
+    // Arbitrary cross-site navigation is not allowed in the privileged
+    // window. Open external links via the existing window-open handler.
     event.preventDefault();
   });
 }
 
-function setupErrorHandler(mainWindow) {
-  mainWindow.webContents.on(
+function setupErrorHandler(window) {
+  let recoveryShown = false;
+
+  window.webContents.on("did-start-navigation", (_event, url, _inPlace, isMainFrame) => {
+    if (isMainFrame && /^https?:\\/\\//i.test(url)) {
+      recoveryShown = false;
+    }
+  });
+
+  window.webContents.on(
     "did-fail-load",
-    (event, errorCode, errorDescription, validatedURL) => {
-      const errorHTML = `
-        <div style="
-          font-family: Arial, sans-serif;
-          text-align: center;
-          padding: 40px;
-          color: #333;
-          background-color: #f8f8f8;
-          border: 1px solid #ddd;
-          max-width: 600px;
-          margin: 0 auto;
-        ">
-          <h1>Ошибка загрузки страницы</h1>
-          <p><strong>Код ошибки:</strong> ${errorCode}</p>
-          <p><strong>Описание:</strong> ${errorDescription}</p>
-          <p><strong>Текущий URL:</strong> ${validatedURL}</p>
+    (_event, errorCode, errorDescription, validatedURL, isMainFrame) => {
+      // ERR_ABORTED happens during redirects, navigation changes, and reloads.
+      // An iframe failure must not replace the whole desktop application.
+      if (
+        isMainFrame === false ||
+        errorCode === -3 ||
+        recoveryShown ||
+        window.isDestroyed() ||
+        window.webContents.isDestroyed()
+      ) {
+        return;
+      }
 
-          <div style="margin: 20px 0;">
-            <input
-              id="customUrlInput"
-              type="text"
-              placeholder="Введите новый URL (например, http://lampa.mx)"
-              style="
-                width: 80%;
-                padding: 10px;
-                border: 1px solid #ccc;
-                border-radius: 4px;
-                font-size: 16px;
-              "
-            />
-          </div>
+      recoveryShown = true;
+      console.error("Не удалось загрузить Lampa:", {
+        errorCode,
+        errorDescription,
+        validatedURL,
+      });
 
-          <div style="display: flex; gap: 10px; justify-content: center;">
-            <button
-              onclick="handleDefaultReload()"
-              style="
-                padding: 10px 20px;
-                background-color: #28a745;
-                color: white;
-                border: none;
-                border-radius: 4px;
-                cursor: pointer;
-              "
-            >
-              Загрузить LAMPA.MX
-            </button>
-            <button
-              onclick="handleCustomReload()"
-              style="
-                padding: 10px 20px;
-                background-color: #007bff;
-                color: white;
-                border: none;
-                border-radius: 4px;
-                cursor: pointer;
-              "
-            >
-              Перейти
-            </button>
-          </div>
-        </div>
+      const failurePage = createLoadFailureUrl({
+        url: validatedURL || store.get("lampaUrl", DEFAULT_LAMPA_URL),
+        code: errorCode,
+        description: errorDescription,
+      });
 
-        <script>
-          async function handleDefaultReload() {
-            try {
-              await window.electronAPI.store.set('lampaUrl', 'http://lampa.mx');
-              window.electronAPI.loadUrl('http://lampa.mx');
-            } catch (err) {
-              console.error('Ошибка:', err);
-              alert('Не удалось загрузить lampa.mx: ' + err.message);
-            }
-          }
-
-          async function handleCustomReload() {
-            const input = document.getElementById('customUrlInput');
-            const url = input.value.trim();
-
-            if (!url) {
-              alert('Пожалуйста, введите URL!');
-              return;
-            }
-
-            try {
-              await window.electronAPI.store.set('lampaUrl', url);
-              window.electronAPI.loadUrl(url);
-            } catch (err) {
-              console.error('Ошибка:', err);
-              alert('Не удалось перейти по URL: ' + err.message);
-            }
-          }
-        </script>
-      `;
-
-      mainWindow.webContents.executeJavaScript(`
-        document.write(${JSON.stringify(errorHTML)});
-        document.close();
-      `);
+      // Navigating to a real HTML document works even when the original
+      // navigation failed before any DOM could be created.
+      window.webContents.loadURL(failurePage).catch((error) => {
+        console.error("Не удалось отобразить экран восстановления:", error);
+      });
+      if (!window.isVisible()) window.show();
     },
   );
 }

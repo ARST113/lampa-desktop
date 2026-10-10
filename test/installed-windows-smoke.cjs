@@ -5,7 +5,6 @@ const { spawn, spawnSync } = require("node:child_process");
 const fs = require("node:fs");
 const http = require("node:http");
 const net = require("node:net");
-const os = require("node:os");
 const path = require("node:path");
 
 if (process.platform !== "win32") {
@@ -14,19 +13,25 @@ if (process.platform !== "win32") {
 }
 
 const executable = process.argv[2];
-assert.ok(executable && fs.existsSync(executable), "Installed Lampa.exe not found.");
+assert.ok(
+  executable && fs.existsSync(executable),
+  "Installed Lampa.exe not found.",
+);
 
-const scratch = fs.mkdtempSync(path.join(os.tmpdir(), "lampa-installed-smoke-"));
-const roaming = path.join(scratch, "Roaming");
-const local = path.join(scratch, "Local");
-const userData = path.join(roaming, "Lampa");
+// Electron uses the Windows Known Folder for appData, not a temporary
+// APPDATA environment override. Test the actual installed application profile.
+assert.equal(process.env.CI, "true", "Installer smoke test is CI-only.");
+const userData = path.join(process.env.APPDATA, "Lampa");
 fs.mkdirSync(userData, { recursive: true });
-fs.mkdirSync(local, { recursive: true });
+const configPath = path.join(userData, "config.json");
+const existingConfig = fs.existsSync(configPath)
+  ? fs.readFileSync(configPath)
+  : null;
 
 const server = http.createServer((_request, response) => {
   response.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
   response.end(
-    '<!doctype html><html><head><title>Lampa installer smoke</title></head>' +
+    "<!doctype html><html><head><title>Lampa installer smoke</title></head>" +
       '<body><main id="smoke-ready">Windows installer works</main></body></html>',
   );
 });
@@ -56,7 +61,9 @@ function delay(milliseconds) {
 async function getPage(debugPort, address, child) {
   for (let attempt = 0; attempt < 120; attempt++) {
     if (child.exitCode !== null) {
-      throw new Error(`Installed Lampa.exe terminated early: ${child.exitCode}`);
+      throw new Error(
+        `Installed Lampa.exe terminated early: ${child.exitCode}`,
+      );
     }
     try {
       const response = await fetch(`http://127.0.0.1:${debugPort}/json/list`, {
@@ -109,7 +116,11 @@ function evaluate(tab, expression) {
         const message = JSON.parse(event.data);
         if (message.id !== 1) return;
         if (message.error || message.result?.exceptionDetails) {
-          finish(new Error(JSON.stringify(message.error || message.result.exceptionDetails)));
+          finish(
+            new Error(
+              JSON.stringify(message.error || message.result.exceptionDetails),
+            ),
+          );
           return;
         }
         finish(null, message.result?.result?.value);
@@ -131,7 +142,7 @@ async function main() {
     const debugPort = await reservePort();
 
     fs.writeFileSync(
-      path.join(userData, "config.json"),
+      configPath,
       JSON.stringify({
         lampaUrl: address,
         webSecurity: true,
@@ -140,16 +151,13 @@ async function main() {
       }),
     );
 
-    const environment = { ...process.env, APPDATA: roaming, LOCALAPPDATA: local };
+    const environment = { ...process.env };
     delete environment.PORTABLE_EXECUTABLE_DIR;
     delete environment.ELECTRON_RUN_AS_NODE;
 
     child = spawn(
       executable,
-      [
-        `--remote-debugging-port=${debugPort}`,
-        "--remote-allow-origins=*",
-      ],
+      [`--remote-debugging-port=${debugPort}`, "--remote-allow-origins=*"],
       {
         env: environment,
         windowsHide: true,
@@ -169,7 +177,9 @@ async function main() {
     try {
       tab = await getPage(debugPort, address, child);
     } catch (error) {
-      throw new Error(`${error.message}\nApplication logs: ${output.slice(-3500)}`);
+      throw new Error(
+        `${error.message}\nApplication logs: ${output.slice(-3500)}`,
+      );
     }
 
     const content = await evaluate(
@@ -199,7 +209,11 @@ async function main() {
       });
     }
     await new Promise((resolve) => server.close(resolve));
-    fs.rmSync(scratch, { recursive: true, force: true, maxRetries: 4 });
+    if (existingConfig === null) {
+      fs.rmSync(configPath, { force: true });
+    } else {
+      fs.writeFileSync(configPath, existingConfig);
+    }
   }
 }
 

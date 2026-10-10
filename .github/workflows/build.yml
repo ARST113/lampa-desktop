@@ -47,10 +47,10 @@ jobs:
         run: yarn exec eslint src scripts/verify-electron.cjs
 
       - name: Test application updates and subtitles
-        run: node --test test/autoUpdater.test.cjs test/portablePaths.test.cjs test/branding.test.cjs test/subtitles.test.cjs test/matroska.test.cjs
+        run: node --test test/autoUpdater.test.cjs test/portablePaths.test.cjs test/pageNavigation.test.cjs test/branding.test.cjs test/subtitles.test.cjs test/matroska.test.cjs
 
       - name: Check changed file formatting
-        run: yarn exec prettier package.json build/subtitle-tools.json scripts/verify-electron.cjs .github/workflows/build.yml src/main.js src/modules/portablePaths.js src/modules/torrServerManager.js src/modules/autoUpdater.js src/modules/windowManager.js src/modules/ipcHandlers/otherHandlers.js src/modules/ipcHandlers/subtitleHandlers.js src/modules/ipcHandlers/index.js src/modules/subtitleExtractor.js src/modules/matroskaSubtitles.js src/modules/subtitleStream.js src/modules/playerOptionsInterceptor.js src/modules/pluginHandler.js src/subtitleBridge.js src/preload.js src/plugin.js test/*.cjs README.md --check
+        run: yarn exec prettier package.json build/subtitle-tools.json scripts/verify-electron.cjs test/run-subtitle-integration.cjs .github/workflows/build.yml src/main.js src/modules/portablePaths.js src/modules/pageNavigation.js src/modules/pluginHandler.js src/modules/ipcHandlers/windowHandlers.js src/modules/torrServerManager.js src/modules/autoUpdater.js src/modules/windowManager.js src/modules/ipcHandlers/otherHandlers.js src/modules/ipcHandlers/subtitleHandlers.js src/modules/ipcHandlers/index.js src/modules/subtitleExtractor.js src/modules/matroskaSubtitles.js src/modules/subtitleStream.js src/modules/playerOptionsInterceptor.js src/modules/pluginHandler.js src/subtitleBridge.js src/preload.js src/plugin.js test/*.cjs README.md --check
 
       - name: Download and verify custom Electron
         shell: pwsh
@@ -151,6 +151,10 @@ jobs:
 
             Enables embedded audio-track switching in the internal player, including torrents played through TorrServer.
             Adds App settings → Check for updates, with background downloads and installation after confirmation.
+
+            New in ac3.10: fixes blank screens on failed URLs with a standalone error page,
+            restores URL switching from that page, and permits same-site navigation.
+            The Windows CI now exercises network failure and recovery in real Electron.
 
             New in ac3.9: removes the original developer donation menu, embedded payment QR codes,
             and Robokassa payment URLs from all Windows builds. About now links to the ARST113 fork

@@ -169,6 +169,18 @@ async function main() {
       origin: "https://cf.lampa.mx",
       required: false,
     });
+    await runApp({
+      url: "https://lampac.fun/",
+      port: 9447,
+      origin: "https://lampac.fun/",
+      required: false,
+    });
+    await runApp({
+      url: "http://lampac.fun/",
+      port: 9448,
+      origin: "https://lampac.fun/",
+      required: false,
+    });
   } finally {
     fixture.close();
     fs.rmSync(dataDir, { recursive: true, force: true });

@@ -179,12 +179,41 @@ async function main() {
   });
   fixture.listen(0, "127.0.0.1");
   await new Promise((resolve) => fixture.once("listening", resolve));
+
+  // Verify a server-initiated JavaScript navigation to another HTTP origin.
+  const destination = http.createServer((_request, response) => {
+    response.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+    response.end("<!doctype html><html><body>Cross-origin server navigation works</body></html>");
+  });
+  destination.listen(0, "127.0.0.1");
+  await new Promise((resolve) => destination.once("listening", resolve));
+  const destinationUrl = `http://127.0.0.1:${destination.address().port}/`;
+  const redirect = http.createServer((_request, response) => {
+    response.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+    response.end(
+      "<!doctype html><html><head><script>location.replace(" +
+        JSON.stringify(destinationUrl) +
+        ")</script></head><body>Redirecting</body></html>",
+    );
+  });
+  redirect.listen(0, "127.0.0.1");
+  await new Promise((resolve) => redirect.once("listening", resolve));
+  const redirectUrl = `http://127.0.0.1:${redirect.address().port}/`;
+
   fs.writeFileSync(marker, "portable");
   const address = fixture.address();
   const fixtureUrl = `http://127.0.0.1:${address.port}/`;
   try {
     await runApp({ url: fixtureUrl, port: 9444, origin: fixtureUrl, required: true });
     await runFailedNavigationProbe();
+    const redirected = await runApp({
+      url: redirectUrl,
+      port: 9451,
+      origin: destinationUrl,
+      required: false,
+    });
+    assert.equal(redirected?.url, destinationUrl);
+    assert.match(redirected?.bodyText || "", /Cross-origin server navigation works/);
     // Real-site diagnostics: log failures without failing the deterministic fixture test.
     await runApp({
       url: "http://lampa.mx",
@@ -212,6 +241,8 @@ async function main() {
     });
   } finally {
     fixture.close();
+    destination.close();
+    redirect.close();
     fs.rmSync(dataDir, { recursive: true, force: true });
     fs.rmSync(marker, { force: true });
   }

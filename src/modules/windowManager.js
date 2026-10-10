@@ -1,9 +1,14 @@
-const { BrowserWindow, screen, dialog } = require("electron");
+const { BrowserWindow, screen } = require("electron");
 const path = require("node:path");
+const fs = require("node:fs");
 const store = require("./storeManager");
 const { setupPluginHandler } = require("./pluginHandler");
 const { setupDevTools } = require("./devTools");
-const { DEFAULT_LAMPA_URL, isInternalNavigation } = require("./pageNavigation");
+const {
+  DEFAULT_LAMPA_URL,
+  isInternalNavigation,
+  normalizeHttpUrl,
+} = require("./pageNavigation");
 const { createNavigationFallback } = require("./navigationFallback");
 
 let mainWindow = null;
@@ -153,6 +158,7 @@ function createWindow() {
   setupPluginHandler(mainWindow);
 
   navigation.open(store.get("lampaUrl", DEFAULT_LAMPA_URL));
+  watchConfiguredUrl(mainWindow, navigation);
 
   const saveState = () => {
     if (
@@ -254,6 +260,41 @@ function setupNavigationHandlers(window) {
   });
 }
 
+// Portable users can edit LampaData/config.json while the application is
+// running. Read the actual file: electron-store's in-memory snapshot is not a
+// reliable notification mechanism for external edits and atomic file writes.
+function watchConfiguredUrl(window, navigation) {
+  const filename = store.path;
+  let observed = store.get("lampaUrl", DEFAULT_LAMPA_URL);
+
+  function changed() {
+    if (window.isDestroyed() || window.webContents.isDestroyed()) return;
+    let configured;
+    try {
+      configured = JSON.parse(fs.readFileSync(filename, "utf8")).lampaUrl;
+    } catch {
+      // An editor can temporarily truncate the file during an atomic save.
+      return;
+    }
+    if (typeof configured !== "string" || configured === observed) return;
+    observed = configured;
+    let url;
+    try {
+      url = normalizeHttpUrl(configured);
+    } catch (error) {
+      console.warn("Недопустимый URL в config.json:", error.message);
+      return;
+    }
+    if (url !== navigation.getTarget()) {
+      console.info("Применён адрес из config.json:", url);
+      navigation.open(url);
+    }
+  }
+
+  fs.watchFile(filename, { persistent: false, interval: 500 }, changed);
+  window.once("closed", () => fs.unwatchFile(filename, changed));
+}
+
 function setupErrorHandler(window, { onReady = () => window.show() } = {}) {
   let navigation;
 
@@ -263,27 +304,17 @@ function setupErrorHandler(window, { onReady = () => window.show() } = {}) {
       console.error("Стандартный сервер Lampa тоже недоступен:", error);
       if (window.isDestroyed()) return;
 
-      // A native dialog is shown instead of a blank renderer or an error page.
-      void dialog
-        .showMessageBox({
-          type: "error",
-          title: "Lampa недоступна",
-          message: "Не удалось открыть стандартный адрес http://lampa.mx.",
-          detail:
-            "Проверены основной адрес и резервное зеркало. " +
-            String(error?.message || error) +
-            "\nПроверьте сеть или измените URL в конфигурации.",
-          buttons: ["Повторить", "Закрыть"],
-          defaultId: 0,
-          cancelId: 1,
+      // Do not leave a hidden or unusable window after two failed hosts.
+      // The local recovery screen accepts any valid address, even while
+      // offline, and is not dependent on the remote Lampa renderer.
+      void window
+        .loadFile(path.join(__dirname, "..", "recovery.html"))
+        .then(() => {
+          if (!window.isDestroyed()) window.show();
         })
-        .then(({ response }) => {
-          if (window.isDestroyed()) return;
-          if (response === 0) navigation.open(DEFAULT_LAMPA_URL);
-          else window.close();
-        })
-        .catch((dialogError) => {
-          console.error("Ошибка диалога загрузки:", dialogError);
+        .catch((recoveryError) => {
+          console.error("Не удалось открыть экран восстановления:", recoveryError);
+          if (!window.isDestroyed()) window.show();
         });
     },
   });

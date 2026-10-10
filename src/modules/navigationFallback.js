@@ -1,6 +1,6 @@
 const { DEFAULT_LAMPA_URL, normalizeHttpUrl } = require("./pageNavigation");
 
-const STARTUP_TIMEOUT_MS = 15000;
+const STARTUP_TIMEOUT_MS = 30000;
 const READINESS_POLL_MS = 250;
 
 const LAMPA_RENDERED_SCRIPT = `(() => {
@@ -8,14 +8,10 @@ const LAMPA_RENDERED_SCRIPT = `(() => {
   const shell = root?.querySelector(".wrap");
   const head = root?.querySelector(".head");
   const content = root?.querySelector(".wrap__content");
-  return Boolean(
-    window.Lampa &&
-    window.appready === true &&
-    head &&
-    shell &&
-    content &&
-    shell.getBoundingClientRect().width > 0
-  );
+  // Hidden BrowserWindow may report zero layout width on Windows.
+  // The app is ready when Lampa creates its real interface. Some forks
+  // render the shell before (or without) setting window.appready.
+  return Boolean(window.Lampa && head && shell && content);
 })()`;
 
 function createNavigationFallback(
@@ -73,9 +69,9 @@ function createNavigationFallback(
   async function checkReady(id) {
     if (!isCurrent(id)) return;
 
-    // A global Lampa object exists long before the user interface is drawn.
-    // Lampa's app.js sets appready only after Render.app() has completed.
-    // Checking actual layout elements prevents treating a dark/empty page as ready.
+    // A global Lampa object exists long before the interface is drawn.
+    // Check the actual interface, without tying readiness to a hidden
+    // BrowserWindow's geometry or fork-dependent appready timing.
     if (!isSameNavigation(window.webContents.getURL(), current.url)) return;
 
     const ready = await window.webContents
@@ -84,6 +80,7 @@ function createNavigationFallback(
     if (!isCurrent(id)) return;
 
     if (ready) {
+      console.info("Lampa interface ready:", window.webContents.getURL());
       clearTimers();
       current = null;
       onReady();
@@ -106,8 +103,10 @@ function createNavigationFallback(
     }
 
     clearTimers();
-    // Keep the previous renderer from flashing a blank page while another
-    // address is being checked. Only show the window once Lampa has rendered.
+    console.info("Lampa navigation started:", target);
+    // Never expose an Electron error page or an empty renderer during
+    // recovery. Background throttling must be disabled on the window
+    // so that Lampa's JavaScript keeps running while it is hidden.
     if (!window.isDestroyed() && window.isVisible()) window.hide();
     const id = ++attemptNumber;
     current = { id, url: target };

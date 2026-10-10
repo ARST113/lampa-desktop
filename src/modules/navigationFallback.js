@@ -42,6 +42,7 @@ function createNavigationFallback(
       : null;
   let current = null;
   let attemptNumber = 0;
+  let lastTarget = null;
   let timeout = null;
   let poll = null;
 
@@ -70,7 +71,20 @@ function createNavigationFallback(
     console.error("Не удалось запустить Lampa:", failed, reason);
 
     if (failed !== fallbackUrl && failed !== backupUrl) {
-      // Failed custom settings must not persist across restarts.
+      // The user may correct config.json while the previous URL is failing.
+      // Do not erase that correction with the automatic fallback.
+      const configured = store.get("lampaUrl", fallbackUrl);
+      if (configured !== failed) {
+        try {
+          const updated = normalizeHttpUrl(configured);
+          if (updated !== failed) {
+            open(updated);
+            return;
+          }
+        } catch {
+          // Broken config values are handled by the standard fallback.
+        }
+      }
       store.set("lampaUrl", fallbackUrl);
       open(fallbackUrl);
       return;
@@ -123,7 +137,9 @@ function createNavigationFallback(
       target = fallbackUrl;
     }
 
+    if (current && current.url === target) return;
     clearTimers();
+    lastTarget = target;
     console.info("Lampa navigation started:", target);
     // Never expose an Electron error page or an empty renderer during
     // recovery. Background throttling must be disabled on the window
@@ -172,7 +188,7 @@ function createNavigationFallback(
     current = null;
   });
 
-  return { open };
+  return { open, getTarget: () => current?.url || lastTarget };
 }
 
 function isExactHost(actual, expected) {

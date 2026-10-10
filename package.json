@@ -49,8 +49,8 @@
     "prettier": "3.9.6"
   },
   "author": {
-    "name": "Kolovatoff",
-    "email": "kirill@kolovatov.ru"
+    "name": "ARST113",
+    "url": "https://github.com/ARST113/lampa-desktop"
   },
   "license": "MIT",
   "build": {

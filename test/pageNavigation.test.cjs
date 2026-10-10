@@ -96,6 +96,27 @@ test("failed URL handling never displays a recovery HTML page", () => {
   );
 });
 
+test("URL store no longer reloads BrowserWindow behind controller", () => {
+  const src = fs.readFileSync(
+    path.join(__dirname, "..", "src", "modules", "ipcHandlers", "storeHandlers.js"),
+    "utf8",
+  );
+  assert.doesNotMatch(src, /onDidChange\\("lampaUrl"/);
+  assert.doesNotMatch(src, /mainWindow\\.loadURL/);
+  assert.match(src, /openLampaUrl\\(mainWindow, url\\)/);
+});
+
+test("readiness requires the actual Lampa interface, not just a global", () => {
+  const src = fs.readFileSync(
+    path.join(__dirname, "..", "src", "modules", "navigationFallback.js"),
+    "utf8",
+  );
+  assert.match(src, /window\\.appready === true/);
+  assert.match(src, /querySelector\\("\\.head"\\)/);
+  assert.match(src, /querySelector\\("\\.wrap"\\)/);
+  assert.doesNotMatch(src, /Boolean\\(window\\.Lampa && document\\.body\\)/);
+});
+
 test("manual URL changes go through the fallback controller", () => {
   const root = path.join(__dirname, "..", "src");
   const ipc = fs.readFileSync(

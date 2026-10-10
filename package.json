@@ -110,8 +110,8 @@
           "MimeType": "application/x-lampa"
         }
       },
-      "maintainer": "Kirill Kolovatov <kirill@kolovatov.ru>",
-      "vendor": "Kolovatoff",
+      "maintainer": "ARST113",
+      "vendor": "ARST113",
       "executableName": "lampa-desktop"
     },
     "mac": {

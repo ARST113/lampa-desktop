@@ -17,7 +17,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: lampa-windows-ac3-eac3-live-validation
+  group: lampa-windows-ac3-eac3-ac314-onboarding
   cancel-in-progress: true
 
 jobs:
@@ -151,7 +151,8 @@ jobs:
           fail_on_unmatched_files: true
           body: |
             New in ac3.14: fix Electron hidden-window false startup failures and
-            disable background throttling. Try the official HTTPS fallback only
+            disable background throttling, and recognize Lampa's first-run
+            language chooser as a successfully loaded interactive screen. Try the official HTTPS fallback only
             if http://lampa.mx is truly unavailable. Installed and portable
             Windows EXEs must now pass three live-site launch scenarios each,
             including config.json edits and automatic invalid-URL recovery,

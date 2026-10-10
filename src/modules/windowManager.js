@@ -164,7 +164,10 @@ function createWindow() {
         }),
       )
       .catch((navigationError) => {
-        console.error("Ошибка открытия экрана восстановления:", navigationError);
+        console.error(
+          "Ошибка открытия экрана восстановления:",
+          navigationError,
+        );
       });
   }
 
@@ -242,7 +245,9 @@ function setupNavigationHandlers(window) {
 
     // External player protocols should launch in the operating system,
     // not replace the embedded Lampa document.
-    if (["mpv:", "iina:", "infuse:", "senplayer:"].includes(parsedUrl.protocol)) {
+    if (
+      ["mpv:", "iina:", "infuse:", "senplayer:"].includes(parsedUrl.protocol)
+    ) {
       event.preventDefault();
       shell.openExternal(navigationUrl).catch((error) => {
         console.error("Ошибка открытия внешнего плеера:", error);
@@ -269,11 +274,17 @@ function setupNavigationHandlers(window) {
 function setupErrorHandler(window) {
   let recoveryShown = false;
 
-  window.webContents.on("did-start-navigation", (_event, url, _inPlace, isMainFrame) => {
-    if (isMainFrame && (url.startsWith("http://") || url.startsWith("https://"))) {
-      recoveryShown = false;
-    }
-  });
+  window.webContents.on(
+    "did-start-navigation",
+    (_event, url, _inPlace, isMainFrame) => {
+      if (
+        isMainFrame &&
+        (url.startsWith("http://") || url.startsWith("https://"))
+      ) {
+        recoveryShown = false;
+      }
+    },
+  );
 
   window.webContents.on(
     "did-fail-load",

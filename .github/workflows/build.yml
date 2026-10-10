@@ -17,7 +17,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: lampa-windows-ac3-eac3
+  group: lampa-windows-ac3-eac3-fallback
   cancel-in-progress: true
 
 jobs:

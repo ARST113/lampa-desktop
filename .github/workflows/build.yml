@@ -10,6 +10,7 @@ on:
   push:
     branches:
       - main
+      - fix/portable-blank-window-and-readme-buttons
     tags:
       - "v*-ac3.*"
 
@@ -65,6 +66,9 @@ jobs:
 
       - name: Package Windows x64 installer and portable executable
         run: yarn build-win
+
+      - name: Diagnose real packaged portable window and Lampa URL loading
+        run: node scripts/smoke-portable.cjs dist/win-unpacked/Lampa.exe
 
       - name: Verify packaged runtime and installer
         id: verify
@@ -138,7 +142,7 @@ jobs:
             dist/SHASUMS256.txt
 
       - name: Publish verified installer
-        if: github.event_name == 'push' || inputs.publish_release
+        if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && inputs.publish_release)
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.verify.outputs.tag }}

@@ -563,33 +563,6 @@
         uk: "Вбудована",
       },
 
-      // Поддержка
-      donate_support: {
-        ru: "Поддержать на {amount}₽",
-        en: "Support with {amount}₽",
-        uk: "Підтримати на {amount}₽",
-      },
-      donate_btn_description: {
-        ru: "Пожертвование на развитие проекта",
-        en: "Donation for project development",
-        uk: "Пожертвування на розвиток проекту",
-      },
-      donate_btn_title: {
-        ru: "Поддержать проект 🫶",
-        en: "Support the project🫶",
-        uk: "Підтримати проект 🫶",
-      },
-      donate_modal_title: {
-        ru: "Поддержать проект 🫶",
-        en: "Support the project 🫶",
-        uk: "Підтримати проект 🫶",
-      },
-      donate_modal_description: {
-        ru: "Внимание! Это поддержка именно разработчика приложения под Десктоп, а не самой Lampa.",
-        en: "Attention! This is the support of the Desktop application developer, not Lampa itself.",
-        uk: "Увага! Це підтримка саме розробника програми під Десктоп, а не самої Lampa.",
-      },
-
       // О приложении
       app_about_title: {
         ru: "Не официальное приложение-клиент для Lampa.",
@@ -975,185 +948,6 @@
     ]).then(() => {
       settingsManager
         .addToQueue({
-          order: 0.5,
-          param: {
-            name: "app_settings_donate",
-            type: "button",
-          },
-          field: {
-            name: Lampa.Lang.translate("donate_btn_title"),
-            description: Lampa.Lang.translate("donate_btn_description"),
-          },
-          onChange: function () {
-            Lampa.Loading.start(() => {}, Lampa.Lang.translate("loading"));
-
-            Lampa.Template.add(
-              "donate_modal",
-              `<div class="app-modal-donate" style="padding: 20px; display: flex; justify-content: center; align-items: center; min-height: 200px; flex-direction: column;">
-          <style>
-            .donate-qr-container {
-              display: flex;
-              gap: 20px;
-              justify-content: center;
-              flex-wrap: wrap;
-              max-width: 100%;
-            }
-            .donate-qr-item {
-              display: flex;
-              flex-direction: column;
-              align-items: center;
-              gap: 15px;
-              padding: 20px;
-              border-radius: 12px;
-              background: rgba(255, 255, 255, 0.05);
-              min-width: 0;
-              flex: 1;
-              max-width: 250px;
-            }
-            .qr-code {
-              width: 100%;
-              max-width: 200px;
-              aspect-ratio: 1 / 1;
-              border-radius: 8px;
-              overflow: hidden;
-              display: flex;
-              align-items: center;
-              justify-content: center;
-              background: white;
-              padding: 5px;
-            }
-            .qr-code img {
-              width: 100%;
-              height: 100%;
-              object-fit: contain;
-            }
-            .donate-amount {
-              font-size: clamp(18px, 5vw, 24px);
-              font-weight: bold;
-              color: #fff;
-              text-align: center;
-            }
-            .donate-bottom-text {
-              margin-top: 25px;
-              text-align: center;
-              color: #999;
-              font-size: clamp(12px, 3vw, 14px);
-              line-height: 1.5;
-              max-width: 600px;
-              padding: 0 10px;
-            }
-            @media (max-width: 700px) {
-              .donate-qr-item {
-                padding: 15px;
-                gap: 10px;
-                max-width: 200px;
-              }
-              .donate-qr-container {
-                gap: 10px;
-              }
-            }
-            @media (max-width: 500px) {
-              .donate-qr-item {
-                padding: 10px;
-                max-width: 160px;
-              }
-              .donate-qr-container {
-                gap: 8px;
-              }
-            }
-          </style>
-          <div class="donate-qr-container">
-            <!-- 100₽ -->
-            <div class="donate-qr-item">
-              <div class="qr-code">
-                <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMgAAADIAQMAAACXljzdAAAABlBMVEX///8AAABVwtN+AAAACXBIWXMAAA7EAAAOxAGVKw4bAAAB+UlEQVRYhc2XUY7DIAxELXEAjsBFUUHiojkCB0DxesbJtvvRzzVJ1TTh9WOEPbYR+Xo1VV2SjmZ3POtME79nGKmmopZxJNXD9Ez7nVh7xZGiB56a3aGq239r1vkYwu8qPXfB/m0g4uqajil5zGDCyK2ymLH2lpd8xnQnYV5bViGzKhWPz4wPILePu+f2pL4/Dv9vYjrg69LN3yJkVNgfQIQrjXTZe5ppusOiSHNPQZXCWVBnei2vo0jCzljusrpwb3pemSq3EykDlYbuGqjIXIfqKFJNGRiih4gN6wz49kBCX5Mxb02ncfTG7QR+70XpejjdYpbxv1cYkYIdMmKZ07OaKquEV0yjCN4WeyIqf/qN3H7iPfueapJPNdljGkMsTw70AngbcYPKfvXG3aTeH3ZuuI6u59QZQ9iPjsbe4JXZ4sbOFEZsd9gbLIsWtaEv9Hw+gFR27PZ2Peeczpk8iIhPdvAYXI/VK+OjSIGj5PK2Tp8crEM+ggzmVPLOcM8W+YwjyGzT55PDYneSy9txhLUFNXiy8iqe5AGEl0evsGPOxrjFET+XYLarzB1UP8xWZxihszg/LK71zPny9vZecp+ooR89068ZTQZrH+oOHa760dFjiPrkwJORn80eQbwqc3Lwcz3W17sv/DvxvKY+Rqypn+DOB5Cv1w83JXZzhKriPAAAAABJRU5ErkJggg=="
-                     alt="QR код 100₽">
-              </div>
-              <div class="donate-amount">100₽</div>
-              <div class="simple-button selector donate-link" data-amount="100" style="margin-right: unset; font-size: unset; text-align: center">
-                <span>` +
-                Lampa.Lang.translate("donate_support").replace(
-                  "{amount}",
-                  "100",
-                ) +
-                `</span>
-              </div>
-            </div>
-
-            <!-- 250₽ -->
-            <div class="donate-qr-item">
-              <div class="qr-code">
-                <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMgAAADIAQMAAACXljzdAAAABlBMVEX///8AAABVwtN+AAAACXBIWXMAAA7EAAAOxAGVKw4bAAACCElEQVRYhc2YUY7DIAxELXEAjsBFUYPERTkCB0DxesbJbvejnzVBSpvk9cPCnrGpyMd1qOqSNA77xL3ONPF9hpFqUdTSR1IdFs+074l3rzhSdODusE9E1ey3Net8DOG1SstNsH8biHh0h/Ypuc9gwsytslix9pSXvOd0J2FdW1Whsioj7u8VH0BuHTev7cn4/in828TigK5LM32LkDHC9gQyBPGSLntOM01XWBQxRdP5LCqFshCdxcu6jiHueNXdhXvT8srLf7OZHJcfQ10djsz3iDqKJO2WO/aEgYx16wy4WhyxuqmlubugbrFT2k3b+4lQU2AdkavlLHers1cYMZcparFgB1vGnTnh3RdCSIKzFO+JcP70ltPdpKJvWmV7dSefanLnXBVD5O7ZozJvmO8ae+N+crkhVC/CyYqq94oPIdg3dgd3IKssyxs7UxQxHXtXsvpejA19oeXzAYSKv2YKqp5zTmPmoghmB1BzoKyexeyeGEO8I93a1umTg+T2DMLZCpMF1jVb5DOOyDVXDZ9v0J1Erpk8iPjcAv+DphI7Q+f8u5twedcu7JjzYN7iyHUugaIGagfuh9nqDCM8m8H9bLai42XOl/epbS/hidq1peiZvmY0ce+D71Dhys4UTFxVOBn52ewRBJkzir7p53q8X78n/u8Tr2v+98KMHZz2/k78O8nH9QMC64YNSyIL3gAAAABJRU5ErkJggg=="
-                     alt="QR код 250₽">
-              </div>
-              <div class="donate-amount">250₽</div>
-              <div class="simple-button selector donate-link" data-amount="250" style="margin-right: unset; font-size: unset; text-align: center">
-                <span>` +
-                Lampa.Lang.translate("donate_support").replace(
-                  "{amount}",
-                  "250",
-                ) +
-                `</span>
-              </div>
-            </div>
-
-            <!-- 500₽ -->
-            <div class="donate-qr-item">
-              <div class="qr-code">
-                <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMgAAADIAQMAAACXljzdAAAABlBMVEX///8AAABVwtN+AAAACXBIWXMAAA7EAAAOxAGVKw4bAAACBElEQVRYhc2YUY7DIAxELXEAjsBFo4DERTkCB0Dxesa02/3o5zqJ1CbNy4eLx/YQka9HVdUlaVT7xrXONHG+wshhURylj6Q6LJ5p54l7ZxwpOnBV7RtRNXv2yDofQ/hZpeUmWL8biHh0VfuU3GcwYeZWWVSs/cpLPnN6J6GuTVVQ1sGI+6fiA8irjptrezK+PxX+38TiQF2XZvUtQsYI2wMIjrTpst9ppukVFkVMy9Az1kxRWYjO4p1nGEFkzdaG3YVr0/LKi6tzN4Ge1u47HR2Z9/3/xBCoOA3opg5krNtkwKeFEayK1bWyu0C39qxxVP3thBXP7HVErpazjOfOMJI4sZPTrBaVdUJmLors2Ohd0PnTO3P3kz0vt6tJ7mpy374qgkjhXKKGkLcl3g/PBxDXdcPsRvVN0qxvxUcQ1Hz1qmdntrz5zAoj3vMW1omxYS60fD2AmKpKK/pb9fQ5zR1XCOH1oF4Kqh53XddhhJmjcq22dbpzkHdO7ySm6UJX5ZNBtrdA5qII55D5KjqHxekk4p48iJS2/b+i56LzKq7kAYRHQUeWwok5K/MWR3xfgr39Qe2g+8FbXWGEK+P+jvdapr987druJXScnbsAxcz0Y0YTTkT2HVY4942xZL934c7I92aPIOLvhCon5+HeN6+Pt0X/TVzXi7WtPhfZ/a4HkK/HD5YMjtz6GkdnAAAAAElFTkSuQmCC"
-                     alt="QR код 500₽">
-              </div>
-              <div class="donate-amount">500₽</div>
-              <div class="simple-button selector donate-link" data-amount="500" style="margin-right: unset; font-size: unset; text-align: center">
-                <span>` +
-                Lampa.Lang.translate("donate_support").replace(
-                  "{amount}",
-                  "500",
-                ) +
-                `</span>
-              </div>
-            </div>
-          </div>
-          <div class="donate-bottom-text">
-            ` +
-                Lampa.Lang.translate("donate_modal_description") +
-                `
-          </div>
-        </div>`,
-            );
-
-            let donate_html = Lampa.Template.get("donate_modal", {});
-
-            const paymentLinks = {
-              100: "https://auth.robokassa.ru/merchant/Invoice/uJcZeMG59kWFwRlrYKNPfQ?FreeOutSum=100",
-              250: "https://auth.robokassa.ru/merchant/Invoice/uJcZeMG59kWFwRlrYKNPfQ?FreeOutSum=250",
-              500: "https://auth.robokassa.ru/merchant/Invoice/uJcZeMG59kWFwRlrYKNPfQ?FreeOutSum=500",
-            };
-
-            donate_html.find(".donate-link").on("hover:enter", function () {
-              const amount = this.getAttribute("data-amount");
-              const link = paymentLinks[amount];
-
-              if (link) {
-                window.open(link, "_blank");
-              }
-            });
-
-            Lampa.Modal.open({
-              title: Lampa.Lang.translate("donate_modal_title"),
-              html: donate_html,
-              size: "medium",
-              onBack: function () {
-                Lampa.Modal.close();
-                Lampa.Controller.toggle("settings_component");
-              },
-            });
-
-            Lampa.Loading.stop();
-            Lampa.Controller.toggle("modal");
-          },
-        })
-        .addToQueue({
           order: 1,
           param: {
             name: "app_settings_about",
@@ -1169,12 +963,17 @@
             Lampa.Loading.start(() => {}, Lampa.Lang.translate("loading"));
             const network = new Lampa.Reguest();
             network.silent(
-              "https://api.github.com/repos/Kolovatoff/lampa-desktop/releases/latest",
+              "https://api.github.com/repos/ARST113/lampa-desktop/releases?per_page=1",
               (data) => {
                 window.electronAPI
                   .getAppVersion()
                   .then((current_version) => {
-                    const latest_version = data.tag_name.replace("v", "");
+                    const latest_tag = Array.isArray(data)
+                      ? data[0]?.tag_name
+                      : data?.tag_name;
+                    const latest_version = latest_tag
+                      ? latest_tag.replace(/^v/, "")
+                      : current_version;
 
                     Lampa.Template.add(
                       "about_modal",
@@ -1215,7 +1014,7 @@
                     let about_html = Lampa.Template.get("about_modal", {});
                     about_html.find(".github").on("hover:enter", function () {
                       window.open(
-                        "https://github.com/Kolovatoff/lampa-desktop",
+                        "https://github.com/ARST113/lampa-desktop",
                         "_blank",
                       );
                     });

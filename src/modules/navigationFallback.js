@@ -66,6 +66,7 @@ function createNavigationFallback(
     if (!isCurrent(id)) return;
 
     const failed = current.url;
+    const configuredAtStart = current.configuredAtStart;
     clearTimers();
     current = null;
     console.error("Не удалось запустить Lampa:", failed, reason);
@@ -74,7 +75,7 @@ function createNavigationFallback(
       // The user may correct config.json while the previous URL is failing.
       // Do not erase that correction with the automatic fallback.
       const configured = store.get("lampaUrl", fallbackUrl);
-      if (configured !== failed) {
+      if (configured !== configuredAtStart && configured !== failed) {
         try {
           const updated = normalizeHttpUrl(configured);
           if (updated !== failed) {
@@ -146,7 +147,11 @@ function createNavigationFallback(
     // so that Lampa's JavaScript keeps running while it is hidden.
     if (!window.isDestroyed() && window.isVisible()) window.hide();
     const id = ++attemptNumber;
-    current = { id, url: target };
+    current = {
+      id,
+      url: target,
+      configuredAtStart: store.get("lampaUrl", fallbackUrl),
+    };
     timeout = setTimeout(() => {
       handleFailure(id, new Error("Время загрузки Lampa истекло."));
     }, timeoutMs);

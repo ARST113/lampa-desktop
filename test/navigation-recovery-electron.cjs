@@ -88,6 +88,7 @@ app
 
     // Bad network address: automatically switch to the configured fallback.
     const window = createTestWindow();
+    let activeWindow = window;
     let readyCount = 0;
     let defaultFailures = 0;
     const registerStoreHandlers = require("../src/modules/ipcHandlers/storeHandlers");
@@ -104,8 +105,9 @@ app
       },
     });
     registerStoreHandlers(store, {
-      getMainWindow: () => window,
-      openLampaUrl: (_mainWindow, url) => navigation.open(url),
+      getMainWindow: () => activeWindow,
+      openLampaUrl: (mainWindow, url) =>
+        mainWindow === window ? navigation.open(url) : missingDefault.open(url),
     });
 
     navigation.open("http://127.0.0.1:65534/wrong");
@@ -213,13 +215,20 @@ app
 
     // When even the default fails, notify once rather than looping forever.
     const second = createTestWindow();
+    activeWindow = second;
     let unavailable = 0;
+    let recovered = 0;
     const missingDefault = createNavigationFallback(second, store, {
       defaultUrl: "http://127.0.0.1:1/",
       timeoutMs: 500,
       pollMs: 25,
+      onReady: () => {
+        recovered += 1;
+        second.show();
+      },
       onUnavailable: () => {
         unavailable += 1;
+        void second.loadFile(path.join(root, "src", "recovery.html")).then(() => second.show());
       },
     });
     missingDefault.open("definitely invalid");
@@ -229,10 +238,26 @@ app
     );
     await new Promise((resolve) => setTimeout(resolve, 400));
     assert.equal(unavailable, 1);
-    assert.equal(second.isVisible(), false);
-    console.log(
-      "PASS: unreachable default stops retrying and never shows white.",
+    await until(
+      () => second.isVisible() && second.webContents.getURL().startsWith("file:"),
+      "Recovery UI did not become visible.",
     );
+    assert.equal(
+      await second.webContents.executeJavaScript(
+        'Boolean(document.getElementById("recovery-form"))',
+      ),
+      true,
+    );
+    console.log("PASS: unreachable default displays interactive recovery UI.");
+
+    await second.webContents.executeJavaScript(
+      `window.electronAPI.store.set("lampaUrl", ${JSON.stringify(base)})`,
+    );
+    await until(
+      () => recovered === 1 && second.webContents.getURL() === base,
+      "Recovery page cannot navigate to a corrected Lampa address.",
+    );
+    console.log("PASS: corrected address works from recovery UI without restart.");
 
     clearTimeout(watchdog);
     for (const item of windows) item.destroy();

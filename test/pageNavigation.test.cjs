@@ -98,7 +98,14 @@ test("failed URL handling never displays a recovery HTML page", () => {
 
 test("URL store no longer reloads BrowserWindow behind controller", () => {
   const src = fs.readFileSync(
-    path.join(__dirname, "..", "src", "modules", "ipcHandlers", "storeHandlers.js"),
+    path.join(
+      __dirname,
+      "..",
+      "src",
+      "modules",
+      "ipcHandlers",
+      "storeHandlers.js",
+    ),
     "utf8",
   );
   assert.equal(src.includes('onDidChange("lampaUrl"'), false);

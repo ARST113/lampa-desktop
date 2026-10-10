@@ -8,7 +8,8 @@ function setupPluginHandler(mainWindow) {
       // The data: recovery screen and unrelated websites must not start a
       // permanent Lampa readiness polling loop.
       const currentUrl = mainWindow.webContents.getURL();
-      if (!/^https?:\\/\\//i.test(currentUrl)) return;
+      (!mainWindow.webContents.getURL().startsWith("http://") &&
+        !mainWindow.webContents.getURL().startsWith("https://"))
 
       const ready = await waitForLampaReady(mainWindow);
       if (!ready) {

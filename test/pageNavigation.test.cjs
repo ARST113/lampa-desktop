@@ -101,9 +101,9 @@ test("URL store no longer reloads BrowserWindow behind controller", () => {
     path.join(__dirname, "..", "src", "modules", "ipcHandlers", "storeHandlers.js"),
     "utf8",
   );
-  assert.doesNotMatch(src, /onDidChange\\("lampaUrl"/);
-  assert.doesNotMatch(src, /mainWindow\\.loadURL/);
-  assert.match(src, /openLampaUrl\\(mainWindow, url\\)/);
+  assert.equal(src.includes('onDidChange("lampaUrl"'), false);
+  assert.equal(src.includes("mainWindow.loadURL"), false);
+  assert.equal(src.includes("openLampaUrl(mainWindow, url)"), true);
 });
 
 test("readiness requires the actual Lampa interface, not just a global", () => {
@@ -111,10 +111,10 @@ test("readiness requires the actual Lampa interface, not just a global", () => {
     path.join(__dirname, "..", "src", "modules", "navigationFallback.js"),
     "utf8",
   );
-  assert.match(src, /window\\.appready === true/);
-  assert.match(src, /querySelector\\("\\.head"\\)/);
-  assert.match(src, /querySelector\\("\\.wrap"\\)/);
-  assert.doesNotMatch(src, /Boolean\\(window\\.Lampa && document\\.body\\)/);
+  assert.equal(src.includes("window.appready === true"), true);
+  assert.equal(src.includes('querySelector(".head")'), true);
+  assert.equal(src.includes('querySelector(".wrap")'), true);
+  assert.equal(src.includes("Boolean(window.Lampa && document.body)"), false);
 });
 
 test("manual URL changes go through the fallback controller", () => {

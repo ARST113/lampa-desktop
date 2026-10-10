@@ -55,6 +55,15 @@ app
         );
         return;
       }
+      if (req.url === "/language") {
+        res.end(
+          '<!doctype html><title>Lampa first run</title><body>' +
+            '<div class="lang"><div class="lang__selector">' +
+            '<div class="lang__selector-item" data-code="ru">Русский</div>' +
+            '</div></div><script>window.Lampa = {};</script></body>',
+        );
+        return;
+      }
       res.end(
         `<!doctype html><title>Lampa local test</title>
         <body><div id="app">
@@ -179,6 +188,19 @@ app
     await until(() => readyCount === 8, "Rendered Lampa without appready was rejected.");
     assert.equal(window.webContents.getURL(), base + "no-appready");
     console.log("PASS: rendered Lampa without appready is accepted.");
+
+    // Real Lampa presents the language picker before it creates #app.
+    // The welcome screen must be shown instead of timing out and failing over.
+    navigation.open(base + "language");
+    await until(() => readyCount === 9, "First-run language screen was rejected.");
+    assert.equal(window.webContents.getURL(), base + "language");
+    assert.equal(
+      await window.webContents.executeJavaScript(
+        'document.querySelector(".lang__selector-item")?.textContent',
+      ),
+      "Русский",
+    );
+    console.log("PASS: first-run language selection is treated as ready.");
 
     // A malformed store request must be rejected before it is persisted.
     await assert.rejects(

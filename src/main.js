@@ -1,5 +1,9 @@
 const { app } = require("electron");
 const path = require("node:path");
+const { configurePortableProfile } = require("./modules/portablePaths");
+
+// Resolve portable profile before loading modules which initialize electron-store.
+configurePortableProfile(app);
 
 const { setupAppLifecycle, gotTheLock } = require("./modules/appLifecycle");
 const { createWindow } = require("./modules/windowManager");

@@ -2,7 +2,7 @@
 
 ### 📥 Скачать последнюю версию (с поддержкой AC3/EAC3):
 
-[![Скачать для Windows](https://img.shields.io/badge/%D0%A1%D0%BA%D0%B0%D1%87%D0%B0%D1%82%D1%8C-Windows_x64-0078D6?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/ARST113/lampa-desktop/releases/download/v1.6.0-ac3.7/lampa-x64-1.6.0-ac3.7.exe)
+[![Скачать для Windows](https://img.shields.io/badge/%D0%A1%D0%BA%D0%B0%D1%87%D0%B0%D1%82%D1%8C-Windows_x64-0078D6?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/ARST113/lampa-desktop/releases/download/v1.6.0-ac3.9/lampa-x64-1.6.0-ac3.9.exe)
 [![Скачать для Linux](https://img.shields.io/badge/%D0%A1%D0%BA%D0%B0%D1%87%D0%B0%D1%82%D1%8C-Linux_x86__64-FCC624?style=for-the-badge&logo=linux&logoColor=black)](https://github.com/ARST113/lampa-desktop/releases/download/v1.6.0-ac3.7/lampa-x86_64-1.6.0-ac3.7-linux-ac3.rpm)
 
 [![Скачать для Linux ARM64](https://img.shields.io/badge/%D0%A1%D0%BA%D0%B0%D1%87%D0%B0%D1%82%D1%8C-Linux_ARM64-FCC624?style=for-the-badge&logo=linux&logoColor=black)](https://github.com/ARST113/lampa-desktop/releases/download/v1.6.0-ac3.7/lampa-aarch64-1.6.0-ac3.7-linux-ac3.rpm)
@@ -13,15 +13,17 @@
 
 [![Скачать для macOS (Apple Silicon)](https://img.shields.io/badge/%D0%A1%D0%BA%D0%B0%D1%87%D0%B0%D1%82%D1%8C-macOS_ARM64-000000?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/ARST113/lampa-desktop/releases/download/v1.6.0-ac3.7/lampa-arm64-1.6.0-ac3.7-macos-ac3.dmg)
 
-### Windows Portable (v1.6.0-ac3.8)
+### Windows Portable (v1.6.0-ac3.9)
 
-- [Portable ZIP — приоритетный вариант](https://github.com/ARST113/lampa-desktop/releases/download/v1.6.0-ac3.8/lampa-portable-x64-1.6.0-ac3.8.zip)
-- [Portable EXE — один файл](https://github.com/ARST113/lampa-desktop/releases/download/v1.6.0-ac3.8/lampa-portable-x64-1.6.0-ac3.8.exe)
-- [Обычный установщик Windows](https://github.com/ARST113/lampa-desktop/releases/download/v1.6.0-ac3.8/lampa-x64-1.6.0-ac3.8.exe)
+- [Portable ZIP — приоритетный вариант](https://github.com/ARST113/lampa-desktop/releases/download/v1.6.0-ac3.9/lampa-portable-x64-1.6.0-ac3.9.zip)
+- [Portable EXE — один файл](https://github.com/ARST113/lampa-desktop/releases/download/v1.6.0-ac3.9/lampa-portable-x64-1.6.0-ac3.9.exe)
+- [Обычный установщик Windows](https://github.com/ARST113/lampa-desktop/releases/download/v1.6.0-ac3.9/lampa-x64-1.6.0-ac3.9.exe)
 
 **ZIP:** распакуйте в папку с правом записи и запускайте `Lampa.exe`. Маркер `portable.flag` рядом с приложением включает локальный профиль `LampaData/`: настройки Electron и Lampa, данные браузера, сохранённые плагины и локальный TorrServer. Перемещать и обновлять нужно всю папку, сохраняя `LampaData/` и `portable.flag`. Плагины, использующие свои внешние пути, могут требовать отдельной настройки.
 
-**Portable EXE:** запускайте `lampa-portable-x64-1.6.0-ac3.8.exe` без установки; `LampaData/` создаётся рядом с этим файлом, хотя Electron временно распаковывает исполняемую часть в системный каталог. Автообновление через установщик отключено в обоих portable-вариантах: новую версию следует скачивать вручную и сохранять существующую папку `LampaData/`. Приложению нужны права записи в каталог, где расположен Portable.
+**Portable EXE:** запускайте `lampa-portable-x64-1.6.0-ac3.9.exe` без установки; `LampaData/` создаётся рядом с этим файлом, хотя Electron временно распаковывает исполняемую часть в системный каталог. Автообновление через установщик отключено в обоих portable-вариантах: новую версию следует скачивать вручную и сохранять существующую папку `LampaData/`. Приложению нужны права записи в каталог, где расположен Portable.
+
+**Изменения ac3.9:** из меню приложения удалены реквизиты поддержки исходного разработчика, три QR-кода и все ссылки Robokassa. Окно «О приложении» открывает репозиторий ARST113 и проверяет его релизы. Изменения включены в установщик и оба portable-варианта.
 
 [![GitHub All Releases](https://img.shields.io/github/downloads/ARST113/lampa-desktop/total)](https://github.com/ARST113/lampa-desktop/releases)
 [![GitHub Release](https://img.shields.io/github/v/release/ARST113/lampa-desktop?include_prereleases&style=for-the-badge&logo=github)](https://github.com/ARST113/lampa-desktop/releases)
@@ -122,6 +124,7 @@ yarn install --immutable
 ./scripts/prepare-subtitle-tools.ps1
 yarn build-win
 node scripts/verify-electron.cjs dist/win-unpacked/Lampa.exe dist/win-unpacked/ffmpeg.dll
+```
 
 ### Сборка под macOS
 
@@ -129,4 +132,6 @@ node scripts/verify-electron.cjs dist/win-unpacked/Lampa.exe dist/win-unpacked/f
 статические сборки обеих архитектур упаковываются в `.app` вместе с приложением.
 Готовые сборки переносятся в релизы этого репозитория workflow
 `Publish application builds from the Electron fork`.
-```
+
+Исходная основа проекта — [Kolovatoff/lampa-desktop](https://github.com/Kolovatoff/lampa-desktop).
+Сведения об авторстве и условия распространения исходного кода сохранены в [LICENSE](LICENSE).

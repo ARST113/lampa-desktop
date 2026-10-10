@@ -325,11 +325,9 @@ class TorrServerManager {
       const data = await response.json();
 
       // Проверяем, что все компоненты работают
-      const allWorks =
-        data.gst_discoverer?.works &&
-        data.gstreamer?.works;
-        // data.hdr_tone_mapping?.works &&
-        // data.embedded_runtime?.works;
+      const allWorks = data.gst_discoverer?.works && data.gstreamer?.works;
+      // data.hdr_tone_mapping?.works &&
+      // data.embedded_runtime?.works;
 
       this.gstSupport = allWorks;
 
@@ -414,8 +412,7 @@ class TorrServerManager {
       const savedPath = store.get("tsPath");
       const useGst = store.get("tsUseGst", false);
 
-      this.executablePath =
-        storedExecutablePath(savedPath, info.savePath);
+      this.executablePath = storedExecutablePath(savedPath, info.savePath);
 
       // Проверяем, установлен ли TorrServer
       if (!existsSync(this.executablePath)) {
@@ -643,8 +640,7 @@ class TorrServerManager {
 
     // Удаляем старый файл (требуется для обратной совместимости) Потом удалить.
     const savedPath = store.get("tsPath");
-    const executablePath =
-      storedExecutablePath(savedPath, info.savePath);
+    const executablePath = storedExecutablePath(savedPath, info.savePath);
     if (existsSync(executablePath)) {
       await fs.unlink(executablePath);
       console.log(`🗑️ Удален старый файл: ${executablePath}`);
@@ -673,8 +669,7 @@ class TorrServerManager {
 
       // Получаем актуальный путь к файлу
       const savedPath = store.get("tsPath");
-      const executablePath =
-        storedExecutablePath(savedPath, info.savePath);
+      const executablePath = storedExecutablePath(savedPath, info.savePath);
 
       // Удаляем исполняемый файл
       if (existsSync(executablePath)) {
@@ -770,8 +765,7 @@ class TorrServerManager {
     const savedPath = store.get("tsPath");
 
     // Проверяем по сохраненному пути или по стандартному пути
-    const executablePath =
-      storedExecutablePath(savedPath, info.savePath);
+    const executablePath = storedExecutablePath(savedPath, info.savePath);
 
     const installed = existsSync(executablePath) && !!version;
 
@@ -878,8 +872,7 @@ class TorrServerManager {
 
       // Удаляем старый файл
       const savedPath = store.get("tsPath");
-      const executablePath =
-        storedExecutablePath(savedPath, info.savePath);
+      const executablePath = storedExecutablePath(savedPath, info.savePath);
 
       if (existsSync(executablePath)) {
         await fs.unlink(executablePath);
@@ -943,8 +936,7 @@ class TorrServerManager {
 
     // Проверяем установку по сохраненному пути или по стандартному пути
     const savedPath = store.get("tsPath");
-    const executablePath =
-      storedExecutablePath(savedPath, info.savePath);
+    const executablePath = storedExecutablePath(savedPath, info.savePath);
 
     // Проверяем, существует ли файл
     const isInstalled =

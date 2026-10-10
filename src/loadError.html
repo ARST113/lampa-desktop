@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Lampa Desktop — ошибка загрузки</title>
+    <style>
+      :root {
+        font-family: Arial, sans-serif;
+        color-scheme: dark;
+        background: #191b1d;
+        color: #f3f3f3;
+      }
+      body {
+        display: grid;
+        min-height: 100vh;
+        margin: 0;
+        place-items: center;
+      }
+      main {
+        width: min(660px, calc(100% - 48px));
+        padding: 28px;
+        border-radius: 12px;
+        background: #25282b;
+        box-sizing: border-box;
+      }
+      h1 {
+        font-size: 24px;
+        margin: 0 0 16px;
+      }
+      p {
+        line-height: 1.5;
+        color: #c5c8cb;
+      }
+      label {
+        display: block;
+        margin: 20px 0 8px;
+      }
+      input {
+        box-sizing: border-box;
+        width: 100%;
+        padding: 12px;
+        background: #141618;
+        color: white;
+        border: 1px solid #5a6066;
+        border-radius: 6px;
+        font: inherit;
+      }
+      button {
+        margin-top: 16px;
+        padding: 11px 20px;
+        cursor: pointer;
+        background: #efefef;
+        color: #111;
+        border: 0;
+        border-radius: 6px;
+        font: inherit;
+      }
+      small {
+        display: block;
+        margin-top: 12px;
+        color: #b4b7ba;
+        overflow-wrap: anywhere;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Не удалось открыть сервер Lampa</h1>
+      <p>
+        Проверьте адрес и доступность сервера. Вы можете повторить попытку или
+        указать другой HTTP(S)-адрес, включая локальный IP и порт.
+      </p>
+      <form id="server-form">
+        <label for="server-url">Адрес сервера</label>
+        <input id="server-url" type="url" required spellcheck="false" />
+        <button type="submit">Открыть сервер</button>
+      </form>
+      <small id="error-reason"></small>
+      <small id="action-error" role="alert"></small>
+    </main>
+    <script>
+      const params = new URLSearchParams(location.search);
+      const input = document.getElementById("server-url");
+      input.value = params.get("url") || "";
+      document.getElementById("error-reason").textContent =
+        "Ошибка " +
+        (params.get("code") || "неизвестна") +
+        ": " +
+        (params.get("message") || "сеть недоступна");
+
+      document.getElementById("server-form").addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const status = document.getElementById("action-error");
+        const url = input.value.trim();
+        try {
+          const parsed = new URL(url);
+          if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+            throw new Error("Разрешены только HTTP и HTTPS");
+          }
+          if (!window.electronAPI) {
+            throw new Error("Не найден интерфейс Electron");
+          }
+          const oldUrl = await window.electronAPI.store.get("lampaUrl");
+          if (oldUrl !== parsed.href) {
+            await window.electronAPI.store.set("lampaUrl", parsed.href);
+          } else {
+            window.electronAPI.loadUrl(parsed.href);
+          }
+          status.textContent = "";
+        } catch (error) {
+          status.textContent = error.message || String(error);
+        }
+      });
+    </script>
+  </body>
+</html>

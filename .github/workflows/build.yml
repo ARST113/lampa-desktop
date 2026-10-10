@@ -100,6 +100,32 @@ jobs:
         shell: pwsh
         run: ./scripts/test-windows-installer.ps1
 
+      - name: Verify real Lampa startup in both distributed Windows formats
+        shell: pwsh
+        run: |
+          $version = (Get-Content package.json -Raw | ConvertFrom-Json).version
+          $installedExe = Join-Path $env:RUNNER_TEMP 'LampaInstallerSmoke/Lampa.exe'
+          node test/installed-windows-live.cjs $installedExe installed
+          if ($LASTEXITCODE -ne 0) { throw 'Live Lampa site failed in the installed EXE. Do not publish.' }
+
+          $portableDir = Join-Path $env:RUNNER_TEMP 'LampaPortableLive'
+          New-Item -ItemType Directory -Path $portableDir -Force | Out-Null
+          $portableExe = Join-Path $portableDir "lampa-portable-$version.exe"
+          Copy-Item -LiteralPath "dist/lampa-portable-x64-$version.exe" -Destination $portableExe
+          node test/installed-windows-live.cjs $portableExe portable
+          if ($LASTEXITCODE -ne 0) { throw 'Live Lampa site failed in the portable EXE. Do not publish.' }
+
+      - name: Always upload real-site diagnostics and failure screenshots
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: lampa-windows-live-diagnostics
+          if-no-files-found: warn
+          path: |
+            dist/lampa-live-*.json
+            dist/lampa-installed-*.png
+            dist/lampa-portable-*.png
+
       - name: Upload Windows installers and portable EXE
         uses: actions/upload-artifact@v6
         with:
@@ -121,6 +147,14 @@ jobs:
           prerelease: true
           fail_on_unmatched_files: true
           body: |
+            New in ac3.14: fix Electron hidden-window false startup failures and
+            disable background throttling. Try the official HTTPS fallback only
+            if http://lampa.mx is truly unavailable. Installed and portable
+            Windows EXEs must now pass three live-site launch scenarios each,
+            including config.json edits and automatic invalid-URL recovery,
+            before any release is published. Failure screenshots and diagnostic
+            JSON are attached to the CI workflow run.
+
             New in ac3.13: fixes two competing Lampa URL navigations from
             store.onDidChange and the automatic fallback controller. All
             settings changes now navigate once, via the controller. The app

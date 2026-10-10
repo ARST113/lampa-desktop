@@ -149,7 +149,10 @@ function createNavigationFallback(
       if (isMainFrame === false || errorCode === -3 || !current) return;
 
       // Ignore a delayed failure from a previous navigation.
-      if (url && !isSameNavigation(url, current.url)) return;
+      // Old failures from the primary host must not abort an already started
+      // HTTPS recovery attempt. Cross-host redirects are handled separately
+      // by loadURL's own promise rejection.
+      if (url && !isExactHost(url, current.url)) return;
       handleFailure(
         current.id,
         new Error(`HTTP navigation error ${errorCode}: ${description}`),
@@ -163,6 +166,16 @@ function createNavigationFallback(
   });
 
   return { open };
+}
+
+function isExactHost(actual, expected) {
+  try {
+    const a = new URL(actual);
+    const b = new URL(expected);
+    return a.hostname === b.hostname && a.port === b.port;
+  } catch {
+    return false;
+  }
 }
 
 function isSameNavigation(actual, expected) {

@@ -24,7 +24,13 @@ function registerStoreHandlers(
       const { normalizeHttpUrl } = require("../pageNavigation");
       const url = normalizeHttpUrl(value);
       store.set("lampaUrl", url);
-      openLampaUrl(mainWindow, url);
+      // Resolve the renderer IPC request before navigating away from that
+      // renderer. Otherwise a valid setting change can reject during unload.
+      setTimeout(() => {
+        if (!mainWindow.isDestroyed() && store.get("lampaUrl") === url) {
+          openLampaUrl(mainWindow, url);
+        }
+      }, 50);
       return;
     }
 

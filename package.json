@@ -1,7 +1,7 @@
 {
   "name": "lampa-desktop",
   "productName": "Lampa",
-  "version": "1.6.0-ac3.7",
+  "version": "1.6.0-ac3.8",
   "description": "Десктопное приложение-клиент для Lampa",
   "repository": {
     "type": "git",
@@ -134,6 +134,12 @@
           "arch": [
             "x64"
           ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
         }
       ],
       "icon": "build/icons/win/icon.ico",
@@ -154,6 +160,9 @@
       "channel": "ac3",
       "owner": "ARST113",
       "repo": "lampa-desktop"
+    },
+    "portable": {
+      "artifactName": "lampa-portable-${arch}-${version}.${ext}"
     }
   },
   "files": [

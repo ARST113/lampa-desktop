@@ -49,8 +49,14 @@ jobs:
       - name: Test application updates and subtitles
         run: node --test test/autoUpdater.test.cjs test/portablePaths.test.cjs test/pageNavigation.test.cjs test/branding.test.cjs test/subtitles.test.cjs test/matroska.test.cjs
 
+      - name: Diagnose formatting of navigation fallback tests
+        shell: pwsh
+        run: |
+          yarn exec prettier src/modules/navigationFallback.js src/modules/windowManager.js src/modules/pageNavigation.js src/modules/ipcHandlers/windowHandlers.js test/navigation-recovery-electron.cjs test/pageNavigation.test.cjs test/installed-windows-smoke.cjs --write
+          git diff -- src/modules/navigationFallback.js src/modules/windowManager.js src/modules/pageNavigation.js src/modules/ipcHandlers/windowHandlers.js test/navigation-recovery-electron.cjs test/pageNavigation.test.cjs test/installed-windows-smoke.cjs
+
       - name: Check changed file formatting
-        run: yarn exec prettier package.json build/subtitle-tools.json scripts/verify-electron.cjs test/run-subtitle-integration.cjs .github/workflows/build.yml src/main.js src/modules/portablePaths.js src/modules/pageNavigation.js src/modules/pluginHandler.js src/modules/ipcHandlers/windowHandlers.js src/modules/torrServerManager.js src/modules/autoUpdater.js src/modules/windowManager.js src/modules/ipcHandlers/otherHandlers.js src/modules/ipcHandlers/subtitleHandlers.js src/modules/ipcHandlers/index.js src/modules/subtitleExtractor.js src/modules/matroskaSubtitles.js src/modules/subtitleStream.js src/modules/playerOptionsInterceptor.js src/modules/pluginHandler.js src/subtitleBridge.js src/preload.js src/plugin.js test/*.cjs README.md --check
+        run: yarn exec prettier package.json build/subtitle-tools.json scripts/verify-electron.cjs test/run-subtitle-integration.cjs .github/workflows/build.yml src/main.js src/modules/portablePaths.js src/modules/navigationFallback.js src/modules/pageNavigation.js src/modules/pluginHandler.js src/modules/ipcHandlers/windowHandlers.js src/modules/torrServerManager.js src/modules/autoUpdater.js src/modules/windowManager.js src/modules/ipcHandlers/otherHandlers.js src/modules/ipcHandlers/subtitleHandlers.js src/modules/ipcHandlers/index.js src/modules/subtitleExtractor.js src/modules/matroskaSubtitles.js src/modules/subtitleStream.js src/modules/playerOptionsInterceptor.js src/modules/pluginHandler.js src/subtitleBridge.js src/preload.js src/plugin.js test/*.cjs README.md --check
 
       - name: Download and verify custom Electron
         shell: pwsh
@@ -121,6 +127,11 @@ jobs:
           prerelease: true
           fail_on_unmatched_files: true
           body: |
+            New in ac3.12: invalid, unreachable or blank custom addresses
+            automatically fall back to http://lampa.mx and reset the saved URL.
+            The main window is hidden during startup to avoid a white screen.
+            If even the default cannot load, a native Retry or Exit dialog appears.
+
             New in ac3.11: Windows ZIP variant removed. Retains only portable EXE and NSIS installer.
             Each release now runs the silent NSIS installer and opens its actual Lampa.exe
             with a clean profile against a deterministic local HTTP page before publication.

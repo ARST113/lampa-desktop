@@ -49,12 +49,6 @@ jobs:
       - name: Test application updates and subtitles
         run: node --test test/autoUpdater.test.cjs test/portablePaths.test.cjs test/pageNavigation.test.cjs test/branding.test.cjs test/subtitles.test.cjs test/matroska.test.cjs
 
-      - name: Diagnose remaining Prettier difference
-        shell: pwsh
-        run: |
-          yarn exec prettier src/modules/pageNavigation.js --write
-          git diff -- src/modules/pageNavigation.js
-
       - name: Check changed file formatting
         run: yarn exec prettier package.json build/subtitle-tools.json scripts/verify-electron.cjs test/run-subtitle-integration.cjs .github/workflows/build.yml src/main.js src/modules/portablePaths.js src/modules/pageNavigation.js src/modules/pluginHandler.js src/modules/ipcHandlers/windowHandlers.js src/modules/torrServerManager.js src/modules/autoUpdater.js src/modules/windowManager.js src/modules/ipcHandlers/otherHandlers.js src/modules/ipcHandlers/subtitleHandlers.js src/modules/ipcHandlers/index.js src/modules/subtitleExtractor.js src/modules/matroskaSubtitles.js src/modules/subtitleStream.js src/modules/playerOptionsInterceptor.js src/modules/pluginHandler.js src/subtitleBridge.js src/preload.js src/plugin.js test/*.cjs README.md --check
 

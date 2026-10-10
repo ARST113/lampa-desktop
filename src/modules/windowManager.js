@@ -268,7 +268,7 @@ function setupErrorHandler(mainWindow) {
   mainWindow.webContents.on(
     "did-start-navigation",
     (_event, url, _isInPlace, isMainFrame) => {
-      if (isMainFrame && /^https?:\\/\\//i.test(url)) {
+      if (isMainFrame && (url.startsWith("http://") || url.startsWith("https://"))) {
         showingFailurePage = false;
       }
     },

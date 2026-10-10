@@ -90,49 +90,23 @@ jobs:
           $portableExe = Get-Item -LiteralPath "dist/lampa-portable-x64-$($package.version).exe"
           if ($portableExe.Length -lt 10MB) { throw 'Portable EXE is unexpectedly small.' }
 
-          # Only the ZIP gets this marker. The NSIS installer keeps its normal profile.
-          Set-Content -LiteralPath 'dist/win-unpacked/portable.flag' -Value 'Windows portable profile: LampaData' -Encoding ascii -NoNewline
-          Add-Type -AssemblyName System.IO.Compression
-          $zipPath = Join-Path (Resolve-Path 'dist').Path "lampa-portable-x64-$($package.version).zip"
-          [System.IO.Compression.ZipFile]::CreateFromDirectory(
-            (Resolve-Path 'dist/win-unpacked').Path,
-            $zipPath,
-            [System.IO.Compression.CompressionLevel]::Optimal,
-            $false
-          )
-          $zip = Get-Item -LiteralPath $zipPath
-          if ($zip.Length -lt 10MB) { throw 'Portable ZIP is unexpectedly small.' }
-          $archive = [System.IO.Compression.ZipFile]::OpenRead($zipPath)
-          try {
-            $zipEntries = @($archive.Entries | ForEach-Object { $_.FullName })
-            foreach ($required in @(
-              'Lampa.exe',
-              'ffmpeg.dll',
-              'resources/app.asar',
-              'resources/subtitle-tools/ffmpeg.exe',
-              'resources/subtitle-tools/ffprobe.exe',
-              'portable.flag'
-            )) {
-              if ($required -notin $zipEntries) { throw "Portable ZIP is missing $required" }
-            }
-          } finally {
-            $archive.Dispose()
-          }
-
           "tag=$tag" >> $env:GITHUB_OUTPUT
-          Get-ChildItem -Path dist/*.exe,dist/*.zip,dist/*.blockmap,dist/ac3.yml | ForEach-Object {
+          Get-ChildItem -Path dist/*.exe,dist/*.blockmap,dist/ac3.yml | ForEach-Object {
             $hash = (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
             "$hash  $($_.Name)"
           } | Set-Content -LiteralPath dist/SHASUMS256.txt -Encoding utf8
 
-      - name: Upload Windows installers and portable archives
+      - name: Install and launch the standard Windows EXE
+        shell: pwsh
+        run: ./scripts/test-windows-installer.ps1
+
+      - name: Upload Windows installers and portable EXE
         uses: actions/upload-artifact@v6
         with:
-          name: lampa-windows-x64-ac3-eac3-portable
+          name: lampa-windows-x64-ac3-eac3
           if-no-files-found: error
           path: |
             dist/*.exe
-            dist/*.zip
             dist/*.blockmap
             dist/ac3.yml
             dist/SHASUMS256.txt
@@ -147,6 +121,10 @@ jobs:
           prerelease: true
           fail_on_unmatched_files: true
           body: |
+            New in ac3.11: Windows ZIP variant removed. Retains only portable EXE and NSIS installer.
+            Each release now runs the silent NSIS installer and opens its actual Lampa.exe
+            with a clean profile against a deterministic local HTTP page before publication.
+
             Windows x64 build of Lampa Desktop using custom Electron 44.4.4 with AC3/EAC3 build flags.
 
             Enables embedded audio-track switching in the internal player, including torrents played through TorrServer.
@@ -174,20 +152,18 @@ jobs:
 
             Based on Kolovatoff/lampa-desktop. Updates for this build use ARST113/lampa-desktop.
             Runtime: https://github.com/ARST113/electron/releases/tag/v44.4.4-ac3-eac3
-            The build verifies the ZIP checksum, packaged Electron version and unchanged custom ffmpeg.dll.
+            The build verifies the NSIS installation and real app startup, packaged Electron version and unchanged custom ffmpeg.dll.
 
             Windows download choices:
-            - `lampa-portable-x64-*.zip` — recommended, extract and run Lampa.exe.
-            - `lampa-portable-x64-*.exe` — standalone portable launcher.
-            - `lampa-x64-*.exe` — standard NSIS installer.
+            - `lampa-portable-x64-*.exe` — standalone portable launcher, no installation.
+            - `lampa-x64-*.exe` — standard NSIS installer, checked by actual installation and launch.
 
             Portable settings, Chromium profile, and TorrServer data are stored in the LampaData
-            directory next to the portable launcher. Keep this directory when replacing binaries.
-            Portable builds use manual application updates to avoid launching the NSIS installer.
+            directory next to the portable EXE. Keep this directory when replacing the portable EXE.
+            Portable EXE uses manual application updates; installed EXE supports automatic updates.
             SHA-256 checksums are in SHASUMS256.txt.
           files: |
             dist/*.exe
-            dist/*.zip
             dist/*.blockmap
             dist/ac3.yml
             dist/SHASUMS256.txt

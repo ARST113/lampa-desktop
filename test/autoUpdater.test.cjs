@@ -5,7 +5,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const vm = require("node:vm");
 
-function fixture({ enabled = true, packaged = true } = {}) {
+function fixture({ enabled = true, packaged = true, portable = false } = {}) {
   const updater = new EventEmitter();
   const timers = [];
   const dialogs = [];
@@ -40,6 +40,9 @@ function fixture({ enabled = true, packaged = true } = {}) {
             shell: { openExternal: async () => {} },
           },
           "./storeManager": { get: () => enabled },
+          "./portablePaths": {
+            resolvePortableRoot: () => (portable ? "C:\\LampaPortable" : null),
+          },
         })[name],
       console: { log() {}, error() {} },
       setTimeout: (callback) => timers.push(callback),
@@ -164,4 +167,14 @@ test("download failures are handled after the version check has completed", asyn
     return {};
   };
   assert.equal((await f.checkForAppUpdates()).status, "up-to-date");
+});
+
+test("portable builds skip installer updates and do not start background checks", async () => {
+  const f = fixture({ portable: true });
+  assert.equal(f.timers.length, 0);
+  const result = await f.checkForAppUpdates();
+  assert.equal(result.status, "manual");
+  assert.match(result.message, /LampaData/);
+  assert.equal(f.checks, 0);
+  assert.equal(f.installs.length, 0);
 });

@@ -9,7 +9,9 @@ function normalizeHttpUrl(value) {
   try {
     url = new URL(value.trim());
   } catch {
-    throw new TypeError("Неверный URL. Нужен полный адрес с http:// или https://.");
+    throw new TypeError(
+      "Неверный URL. Нужен полный адрес с http:// или https://.",
+    );
   }
   if (!["http:", "https:"].includes(url.protocol) || !url.hostname) {
     throw new TypeError("Поддерживаются только адреса http:// и https://.");

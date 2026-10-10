@@ -91,6 +91,9 @@ async function snapshot(tab) {
       head: Boolean(document.querySelector("#app .head")),
       wrap: Boolean(document.querySelector("#app .wrap")),
       content: Boolean(document.querySelector("#app .wrap__content")),
+      languageChoice: Boolean(
+        document.querySelector("body > .lang .lang__selector-item[data-code]")
+      ),
       documentVisibility: document.visibilityState,
       title: document.title,
       body: (document.body?.innerText || "").slice(0, 350)
@@ -197,11 +200,15 @@ async function runScenario(name, configuredUrl, check) {
 async function main() {
   try {
     const loaded = (page) =>
-      page.hasLampa && page.head && page.wrap && page.content &&
+      page.hasLampa &&
+      ((page.head && page.wrap && page.content) || page.languageChoice) &&
       page.documentVisibility === "visible" &&
       [DEFAULT_URL, BACKUP_URL].some((url) => new URL(page.url).host === new URL(url).host);
 
-    // Real default URL loaded from config.json. Mocked HTML cannot pass this.
+    // A fresh profile legitimately shows a first-run language selection
+    // before the main Lampa shell is created. Both states are interactive.
+    // Mocked HTML cannot pass a live host + real DOM check.
+    // Real default URL loaded from config.json.
     await runScenario("default", DEFAULT_URL, loaded);
 
     // A wrong saved URL must recover automatically on the same process.

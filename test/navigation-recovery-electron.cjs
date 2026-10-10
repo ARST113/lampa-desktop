@@ -31,6 +31,7 @@ function createTestWindow() {
       sandbox: false,
       nodeIntegration: false,
       contextIsolation: true,
+      backgroundThrottling: false,
     },
   });
   windows.push(window);
@@ -62,7 +63,15 @@ app
             <div class="wrap__content"><div id="ready">Local Lampa loaded</div></div>
           </div>
         </div>
-        <script>window.Lampa = {};window.appready = true;</script></body>`,
+        <script>
+          window.Lampa = {};
+          if (!location.pathname.includes("no-appready")) window.appready = true;
+          if (location.pathname.includes("geometry-zero")) {
+            HTMLElement.prototype.getBoundingClientRect = function () {
+              return { width: 0, height: 0, top: 0, left: 0, bottom: 0, right: 0 };
+            };
+          }
+        </script></body>`,
       );
     });
     await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
@@ -157,6 +166,19 @@ app
     );
     assert.equal(window.webContents.getURL(), base);
     console.log("PASS: global window.Lampa without rendered UI falls back.");
+
+    // A hidden BrowserWindow can report zero geometry on Windows even
+    // though Lampa has rendered its complete interface.
+    navigation.open(base + "geometry-zero");
+    await until(() => readyCount === 7, "Zero-geometry Lampa was rejected.");
+    assert.equal(window.webContents.getURL(), base + "geometry-zero");
+    console.log("PASS: hidden renderer geometry cannot reject a ready Lampa.");
+
+    // Some Lampa forks render the shell without setting appready.
+    navigation.open(base + "no-appready");
+    await until(() => readyCount === 8, "Rendered Lampa without appready was rejected.");
+    assert.equal(window.webContents.getURL(), base + "no-appready");
+    console.log("PASS: rendered Lampa without appready is accepted.");
 
     // A malformed store request must be rejected before it is persisted.
     await assert.rejects(

@@ -77,6 +77,7 @@ function createWindow() {
       webSecurity: Boolean(store.get("webSecurity")),
     },
     show: false,
+    backgroundColor: "#14161b",
     titleBarStyle: "default",
     icon: path.join(__dirname, "../build/icon.png"),
     fullscreen: fullscreenConfig.fullscreen,

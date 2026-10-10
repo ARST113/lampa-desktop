@@ -12,6 +12,16 @@
 
 [![Скачать для macOS (Apple Silicon)](https://img.shields.io/badge/%D0%A1%D0%BA%D0%B0%D1%87%D0%B0%D1%82%D1%8C-macOS_ARM64-000000?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/ARST113/lampa-desktop/releases/download/v1.6.0-ac3.7/lampa-arm64-1.6.0-ac3.7-macos-ac3.dmg)
 
+### Windows Portable (v1.6.0-ac3.8)
+
+- [Portable ZIP — приоритетный вариант](https://github.com/ARST113/lampa-desktop/releases/download/v1.6.0-ac3.8/lampa-portable-x64-1.6.0-ac3.8.zip)
+- [Portable EXE — один файл](https://github.com/ARST113/lampa-desktop/releases/download/v1.6.0-ac3.8/lampa-portable-x64-1.6.0-ac3.8.exe)
+- [Обычный установщик Windows](https://github.com/ARST113/lampa-desktop/releases/download/v1.6.0-ac3.8/lampa-x64-1.6.0-ac3.8.exe)
+
+**ZIP:** распакуйте в папку с правом записи и запускайте `Lampa.exe`. Маркер `portable.flag` рядом с приложением включает локальный профиль `LampaData/`: настройки Electron и Lampa, данные браузера, сохранённые плагины и локальный TorrServer. Перемещать и обновлять нужно всю папку, сохраняя `LampaData/` и `portable.flag`. Плагины, использующие свои внешние пути, могут требовать отдельной настройки.
+
+**Portable EXE:** запускайте `lampa-portable-x64-1.6.0-ac3.8.exe` без установки; `LampaData/` создаётся рядом с этим файлом, хотя Electron временно распаковывает исполняемую часть в системный каталог. Автообновление через установщик отключено в обоих portable-вариантах: новую версию следует скачивать вручную и сохранять существующую папку `LampaData/`. Приложению нужны права записи в каталог, где расположен Portable.
+
 [![GitHub All Releases](https://img.shields.io/github/downloads/ARST113/lampa-desktop/total)](https://github.com/ARST113/lampa-desktop/releases)
 [![GitHub Release](https://img.shields.io/github/v/release/ARST113/lampa-desktop?include_prereleases&style=for-the-badge&logo=github)](https://github.com/ARST113/lampa-desktop/releases)
 [![License](https://img.shields.io/github/license/ARST113/lampa-desktop?style=for-the-badge&color=blue)](LICENSE)

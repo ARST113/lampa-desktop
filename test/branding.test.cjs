@@ -10,19 +10,22 @@ const metadata = JSON.parse(
 );
 const license = fs.readFileSync(path.join(root, "LICENSE"), "utf8");
 
-test("desktop settings contain no original donation controls or payment details", () => {
-  assert.doesNotMatch(plugin, /app_settings_donate|donate_(?:btn|modal|support)/);
+test("Donation controls and payment links are absent", () => {
+  assert.doesNotMatch(
+    plugin,
+    /app_settings_donate|donate_(?:btn|modal|support)/,
+  );
   assert.doesNotMatch(plugin, /robokassa|donate-link|donate-qr-container/i);
 });
 
-test("About points to fork repository and its prerelease-compatible release API", () => {
+test("About uses fork and prerelease-compatible API", () => {
   assert.match(plugin, /github\.com\/ARST113\/lampa-desktop/);
   assert.match(plugin, /ARST113\/lampa-desktop\/releases\?per_page=1/);
   assert.doesNotMatch(plugin, /github\.com\/Kolovatoff\/lampa-desktop/);
   assert.match(plugin, /app_settings_about/);
 });
 
-test("binary metadata names the current fork while original license remains intact", () => {
+test("Package metadata and license are consistent with the fork", () => {
   assert.equal(metadata.author.name, "ARST113");
   assert.equal(metadata.build.linux.vendor, "ARST113");
   assert.match(license, /GNU GENERAL PUBLIC LICENSE/);

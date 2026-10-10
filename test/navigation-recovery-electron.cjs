@@ -79,7 +79,10 @@ app
     assert.equal(window.webContents.getURL(), base);
     assert.equal(store.get("lampaUrl"), base);
     assert.equal(defaultFailures, 0);
-    assert.equal(window.isVisible(), true);
+    const rendered = await window.webContents.executeJavaScript(
+      "document.getElementById('ready')?.textContent",
+    );
+    assert.equal(rendered, "Local Lampa loaded");
     console.log("PASS: invalid network address switches to Lampa without white screen.");
 
     // Valid but empty HTML must also fall back instead of staying blank.

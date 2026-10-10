@@ -137,9 +137,6 @@ function createWindow() {
     }
   });
 
-  const lampaUrl = store.get("lampaUrl");
-  mainWindow.loadURL(lampaUrl);
-
   setupPluginHandler(mainWindow);
 
   const saveState = () => {
@@ -200,6 +197,12 @@ function createWindow() {
   setupErrorHandler(mainWindow);
   setupWindowOpenHandler(mainWindow);
 
+  // Register all navigation and failure handlers before the initial request.
+  const lampaUrl = store.get("lampaUrl");
+  mainWindow.loadURL(lampaUrl).catch((error) => {
+    console.error("Не удалось открыть адрес Lampa:", lampaUrl, error);
+  });
+
   if (process.argv.includes("--dev")) {
     mainWindow.webContents.openDevTools();
   }
@@ -235,121 +238,68 @@ function setupNavigationHandlers(mainWindow) {
   );
 
   mainWindow.webContents.on("will-navigate", (event, navigationUrl) => {
-    const parsedUrl = new URL(navigationUrl);
-
-    // исправление запуска плееров на MacOS
-    const allowedProtocols = ["mpv:", "iina:", "infuse:", "senplayer:"];
-    if (allowedProtocols.includes(parsedUrl.protocol)) {
+    let parsedUrl;
+    try {
+      parsedUrl = new URL(navigationUrl);
+    } catch {
+      event.preventDefault();
       return;
     }
 
-    if (parsedUrl.origin === "file://") {
-      return;
-    }
+    // Self-hosted Lampa instances can redirect between arbitrary HTTP(S) domains.
+    // Do not constrain navigation to a particular catalog server or protocol.
+    const allowedProtocols = [
+      "http:",
+      "https:",
+      "mpv:",
+      "iina:",
+      "infuse:",
+      "senplayer:",
+    ];
+    if (allowedProtocols.includes(parsedUrl.protocol)) return;
+
     event.preventDefault();
   });
 }
 
 function setupErrorHandler(mainWindow) {
+  let showingFailurePage = false;
+
+  mainWindow.webContents.on(
+    "did-start-navigation",
+    (_event, url, _isInPlace, isMainFrame) => {
+      if (isMainFrame && /^https?:\\/\\//i.test(url)) {
+        showingFailurePage = false;
+      }
+    },
+  );
+
   mainWindow.webContents.on(
     "did-fail-load",
-    (event, errorCode, errorDescription, validatedURL) => {
-      const errorHTML = `
-        <div style="
-          font-family: Arial, sans-serif;
-          text-align: center;
-          padding: 40px;
-          color: #333;
-          background-color: #f8f8f8;
-          border: 1px solid #ddd;
-          max-width: 600px;
-          margin: 0 auto;
-        ">
-          <h1>Ошибка загрузки страницы</h1>
-          <p><strong>Код ошибки:</strong> ${errorCode}</p>
-          <p><strong>Описание:</strong> ${errorDescription}</p>
-          <p><strong>Текущий URL:</strong> ${validatedURL}</p>
+    (_event, errorCode, errorDescription, validatedURL, isMainFrame) => {
+      // -3 is ERR_ABORTED (normal when redirecting or changing addresses).
+      if (!isMainFrame || errorCode === -3 || showingFailurePage) return;
+      showingFailurePage = true;
 
-          <div style="margin: 20px 0;">
-            <input
-              id="customUrlInput"
-              type="text"
-              placeholder="Введите новый URL (например, http://lampa.mx)"
-              style="
-                width: 80%;
-                padding: 10px;
-                border: 1px solid #ccc;
-                border-radius: 4px;
-                font-size: 16px;
-              "
-            />
-          </div>
+      console.error("Ошибка загрузки страницы Lampa", {
+        errorCode,
+        errorDescription,
+        validatedURL,
+      });
 
-          <div style="display: flex; gap: 10px; justify-content: center;">
-            <button
-              onclick="handleDefaultReload()"
-              style="
-                padding: 10px 20px;
-                background-color: #28a745;
-                color: white;
-                border: none;
-                border-radius: 4px;
-                cursor: pointer;
-              "
-            >
-              Загрузить LAMPA.MX
-            </button>
-            <button
-              onclick="handleCustomReload()"
-              style="
-                padding: 10px 20px;
-                background-color: #007bff;
-                color: white;
-                border: none;
-                border-radius: 4px;
-                cursor: pointer;
-              "
-            >
-              Перейти
-            </button>
-          </div>
-        </div>
-
-        <script>
-          async function handleDefaultReload() {
-            try {
-              await window.electronAPI.store.set('lampaUrl', 'http://lampa.mx');
-              window.electronAPI.loadUrl('http://lampa.mx');
-            } catch (err) {
-              console.error('Ошибка:', err);
-              alert('Не удалось загрузить lampa.mx: ' + err.message);
-            }
-          }
-
-          async function handleCustomReload() {
-            const input = document.getElementById('customUrlInput');
-            const url = input.value.trim();
-
-            if (!url) {
-              alert('Пожалуйста, введите URL!');
-              return;
-            }
-
-            try {
-              await window.electronAPI.store.set('lampaUrl', url);
-              window.electronAPI.loadUrl(url);
-            } catch (err) {
-              console.error('Ошибка:', err);
-              alert('Не удалось перейти по URL: ' + err.message);
-            }
-          }
-        </script>
-      `;
-
-      mainWindow.webContents.executeJavaScript(`
-        document.write(${JSON.stringify(errorHTML)});
-        document.close();
-      `);
+      // Display a local error page even if the external site cannot run JS.
+      // Never overwrite the user's selected catalog server with lampa.mx.
+      mainWindow
+        .loadFile(path.join(__dirname, "..", "loadError.html"), {
+          query: {
+            url: validatedURL || store.get("lampaUrl") || "",
+            code: String(errorCode),
+            message: errorDescription,
+          },
+        })
+        .catch((error) => {
+          console.error("Не удалось открыть страницу ошибки:", error);
+        });
     },
   );
 }

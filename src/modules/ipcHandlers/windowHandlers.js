@@ -54,9 +54,7 @@ function registerWindowHandlers(getMainWindow) {
     }
 
     store.set("lampaUrl", target);
-    mainWindow.loadURL(target).catch((error) => {
-      console.error("Ошибка загрузки URL:", error);
-    });
+    require("../windowManager").openLampaUrl(mainWindow, target);
   });
 
   ipcMain.on("close-app", () => {

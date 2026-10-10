@@ -49,11 +49,8 @@ jobs:
       - name: Test application updates and subtitles
         run: node --test test/autoUpdater.test.cjs test/portablePaths.test.cjs test/subtitles.test.cjs test/matroska.test.cjs
 
-      - name: Inspect Prettier differences for portable release
-        run: |
-          yarn exec prettier src/modules/torrServerManager.js README.md --write
-          git diff -- src/modules/torrServerManager.js README.md
-          git diff --exit-code
+      - name: Check changed file formatting
+        run: yarn exec prettier package.json build/subtitle-tools.json scripts/verify-electron.cjs .github/workflows/build.yml src/main.js src/modules/portablePaths.js src/modules/torrServerManager.js src/modules/autoUpdater.js src/modules/windowManager.js src/modules/ipcHandlers/otherHandlers.js src/modules/ipcHandlers/subtitleHandlers.js src/modules/ipcHandlers/index.js src/modules/subtitleExtractor.js src/modules/matroskaSubtitles.js src/modules/subtitleStream.js src/modules/playerOptionsInterceptor.js src/modules/pluginHandler.js src/subtitleBridge.js src/preload.js src/plugin.js test/*.cjs README.md --check
 
       - name: Download and verify custom Electron
         shell: pwsh

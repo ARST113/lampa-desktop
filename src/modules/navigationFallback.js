@@ -106,6 +106,9 @@ function createNavigationFallback(
     }
 
     clearTimers();
+    // Keep the previous renderer from flashing a blank page while another
+    // address is being checked. Only show the window once Lampa has rendered.
+    if (!window.isDestroyed() && window.isVisible()) window.hide();
     const id = ++attemptNumber;
     current = { id, url: target };
     timeout = setTimeout(() => {

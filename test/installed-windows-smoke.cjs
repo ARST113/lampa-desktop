@@ -32,7 +32,8 @@ const server = http.createServer((_request, response) => {
   response.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
   response.end(
     "<!doctype html><html><head><title>Lampa installer smoke</title></head>" +
-      '<body><main id="smoke-ready">Windows installer works</main></body></html>',
+      '<body><main id="smoke-ready">Windows installer works</main>' +
+      "<script>window.Lampa = {};</script></body></html>",
   );
 });
 

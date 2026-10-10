@@ -2,7 +2,7 @@
 
 ### 📥 Скачать последнюю версию (с поддержкой AC3/EAC3):
 
-[![Скачать для Windows](https://img.shields.io/badge/%D0%A1%D0%BA%D0%B0%D1%87%D0%B0%D1%82%D1%8C-Windows_x64-0078D6?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/ARST113/lampa-desktop/releases/download/v1.6.0-ac3.10/lampa-x64-1.6.0-ac3.10.exe)
+[![Скачать для Windows](https://img.shields.io/badge/%D0%A1%D0%BA%D0%B0%D1%87%D0%B0%D1%82%D1%8C-Windows_x64-0078D6?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/ARST113/lampa-desktop/releases/download/v1.6.0-ac3.11/lampa-x64-1.6.0-ac3.11.exe)
 [![Скачать для Linux](https://img.shields.io/badge/%D0%A1%D0%BA%D0%B0%D1%87%D0%B0%D1%82%D1%8C-Linux_x86__64-FCC624?style=for-the-badge&logo=linux&logoColor=black)](https://github.com/ARST113/lampa-desktop/releases/download/v1.6.0-ac3.7/lampa-x86_64-1.6.0-ac3.7-linux-ac3.rpm)
 
 [![Скачать для Linux ARM64](https://img.shields.io/badge/%D0%A1%D0%BA%D0%B0%D1%87%D0%B0%D1%82%D1%8C-Linux_ARM64-FCC624?style=for-the-badge&logo=linux&logoColor=black)](https://github.com/ARST113/lampa-desktop/releases/download/v1.6.0-ac3.7/lampa-aarch64-1.6.0-ac3.7-linux-ac3.rpm)
@@ -13,19 +13,20 @@
 
 [![Скачать для macOS (Apple Silicon)](https://img.shields.io/badge/%D0%A1%D0%BA%D0%B0%D1%87%D0%B0%D1%82%D1%8C-macOS_ARM64-000000?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/ARST113/lampa-desktop/releases/download/v1.6.0-ac3.7/lampa-arm64-1.6.0-ac3.7-macos-ac3.dmg)
 
-### Windows Portable (v1.6.0-ac3.10)
+### Windows x64 — два EXE (v1.6.0-ac3.11)
 
-- [Portable ZIP — приоритетный вариант](https://github.com/ARST113/lampa-desktop/releases/download/v1.6.0-ac3.10/lampa-portable-x64-1.6.0-ac3.10.zip)
-- [Portable EXE — один файл](https://github.com/ARST113/lampa-desktop/releases/download/v1.6.0-ac3.10/lampa-portable-x64-1.6.0-ac3.10.exe)
-- [Обычный установщик Windows](https://github.com/ARST113/lampa-desktop/releases/download/v1.6.0-ac3.10/lampa-x64-1.6.0-ac3.10.exe)
+- [Portable EXE — без установки](https://github.com/ARST113/lampa-desktop/releases/download/v1.6.0-ac3.11/lampa-portable-x64-1.6.0-ac3.11.exe)
+- [Обычный установщик EXE — NSIS](https://github.com/ARST113/lampa-desktop/releases/download/v1.6.0-ac3.11/lampa-x64-1.6.0-ac3.11.exe)
 
-**ZIP:** распакуйте в папку с правом записи и запускайте `Lampa.exe`. Маркер `portable.flag` рядом с приложением включает локальный профиль `LampaData/`: настройки Electron и Lampa, данные браузера, сохранённые плагины и локальный TorrServer. Перемещать и обновлять нужно всю папку, сохраняя `LampaData/` и `portable.flag`. Плагины, использующие свои внешние пути, могут требовать отдельной настройки.
+**Portable EXE:** запускайте файл без установки; рядом создаётся папка `LampaData/` с настройками и профилем Chromium. При обновлении заменяйте EXE и сохраняйте `LampaData/`. Приложению нужны права записи в эту папку. Portable EXE обновляется вручную.
 
-**Portable EXE:** запускайте `lampa-portable-x64-1.6.0-ac3.10.exe` без установки; `LampaData/` создаётся рядом с этим файлом, хотя Electron временно распаковывает исполняемую часть в системный каталог. Автообновление через установщик отключено в обоих portable-вариантах: новую версию следует скачивать вручную и сохранять существующую папку `LampaData/`. Приложению нужны права записи в каталог, где расположен Portable.
+**Обычный установщик EXE:** устанавливает программу в Windows, использует стандартный профиль приложения и поддерживает штатное автообновление. На GitHub Actions проверяются реальная тихая установка NSIS, наличие исполняемых файлов и запуск установленного `Lampa.exe` на чистом профиле с локальным HTTP-сайтом.
 
-**Изменения ac3.9:** из меню приложения удалены реквизиты поддержки исходного разработчика, три QR-кода и все ссылки Robokassa. Окно «О приложении» открывает репозиторий ARST113 и проверяет его релизы. Изменения включены в установщик и оба portable-варианта.
+**Windows ZIP удалён из новых сборок**, поскольку Portable EXE уже обеспечивает запуск без установки. Старые ZIP остаются только в исторических релизах GitHub.
 
-**Исправление белого экрана в ac3.10:** приложение разрешает переходы внутри выбранного сайта (в том числе при смене HTTP на HTTPS). Ошибка загрузки главной страницы теперь открывает отдельную страницу восстановления с кодом ошибки, полем для произвольного HTTP(S)-адреса и кнопками «Повторить» и «Открыть стандартную Lampa». Устранена ошибка IPC-команды перехода и неограниченное ожидание Lampa API на странице, которая не загрузилась. Это не устраняет сетевые блокировки или ошибки JavaScript на самом сайте.
+**Изменения ac3.9:** из меню приложения удалены реквизиты поддержки первоначального разработчика, QR-коды и ссылки Robokassa. Окно «О приложении» открывает репозиторий ARST113.
+
+**Исправление ac3.10:** обработка переходов внутри выбранного сайта, отдельная страница восстановления при сетевой ошибке и работа кнопки повторного открытия адреса. Сетевые блокировки или сбои скриптов самого сайта эти изменения не устраняют.
 
 [![GitHub All Releases](https://img.shields.io/github/downloads/ARST113/lampa-desktop/total)](https://github.com/ARST113/lampa-desktop/releases)
 [![GitHub Release](https://img.shields.io/github/v/release/ARST113/lampa-desktop?include_prereleases&style=for-the-badge&logo=github)](https://github.com/ARST113/lampa-desktop/releases)

@@ -49,7 +49,7 @@ app
       res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
       if (req.url === "/blank" || req.url === "/unready") {
         res.end(
-          '<!doctype html><title>Not ready</title><body>' +
+          "<!doctype html><title>Not ready</title><body>" +
             "<script>window.Lampa = {};</script></body>",
         );
         return;
@@ -130,7 +130,9 @@ app
     );
     assert.equal(window.webContents.getURL(), base);
     assert.equal(store.get("lampaUrl"), base);
-    console.log("PASS: settings IPC typo returns to default without competing navigation.");
+    console.log(
+      "PASS: settings IPC typo returns to default without competing navigation.",
+    );
 
     // A subsequent correct URL must also load, preserving the new address.
     const correct = base + "?correct=1";
@@ -143,7 +145,9 @@ app
     );
     assert.equal(window.webContents.getURL(), correct);
     assert.equal(store.get("lampaUrl"), correct);
-    console.log("PASS: settings IPC accepts correct address after a failed one.");
+    console.log(
+      "PASS: settings IPC accepts correct address after a failed one.",
+    );
 
     // window.Lampa alone must not mark a non-rendered page as ready.
     navigation.open(base + "unready");
@@ -162,7 +166,6 @@ app
     );
     assert.equal(store.get("lampaUrl"), base);
     console.log("PASS: invalid setting is rejected without navigation.");
-
 
     // When even the default fails, notify once rather than looping forever.
     const second = createTestWindow();

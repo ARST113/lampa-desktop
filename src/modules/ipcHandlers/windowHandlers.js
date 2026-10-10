@@ -1,5 +1,6 @@
 const { ipcMain } = require("electron");
 const store = require("../storeManager");
+const { normalizeHttpUrl } = require("../pageNavigation");
 
 function registerWindowHandlers(getMainWindow) {
   ipcMain.handle("open-devtools", (event) => {
@@ -35,10 +36,26 @@ function registerWindowHandlers(getMainWindow) {
 
   ipcMain.on("reload-page", (event, url) => {
     const mainWindow = getMainWindow();
-    if (!mainWindow) return;
+    if (
+      !mainWindow ||
+      mainWindow.isDestroyed() ||
+      event.sender !== mainWindow.webContents ||
+      event.senderFrame !== mainWindow.webContents.mainFrame
+    ) {
+      return;
+    }
 
-    mainWindow.loadURL(url).catch((err) => {
-      console.error("Ошибка загрузки URL:", err);
+    let target;
+    try {
+      target = normalizeHttpUrl(url);
+    } catch (error) {
+      console.error("Недопустимый URL:", error);
+      return;
+    }
+
+    store.set("lampaUrl", target);
+    mainWindow.loadURL(target).catch((error) => {
+      console.error("Ошибка загрузки URL:", error);
     });
   });
 

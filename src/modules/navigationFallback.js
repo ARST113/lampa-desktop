@@ -1,7 +1,4 @@
-const {
-  DEFAULT_LAMPA_URL,
-  normalizeHttpUrl,
-} = require("./pageNavigation");
+const { DEFAULT_LAMPA_URL, normalizeHttpUrl } = require("./pageNavigation");
 
 const STARTUP_TIMEOUT_MS = 15000;
 const READINESS_POLL_MS = 250;
@@ -117,7 +114,10 @@ function createNavigationFallback(
 
       // Ignore a delayed failure from a previous navigation.
       if (url && !isSameNavigation(url, current.url)) return;
-      handleFailure(current.id, new Error(`HTTP navigation error ${errorCode}: ${description}`));
+      handleFailure(
+        current.id,
+        new Error(`HTTP navigation error ${errorCode}: ${description}`),
+      );
     },
   );
 

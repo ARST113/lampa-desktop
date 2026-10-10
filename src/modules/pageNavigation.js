@@ -48,7 +48,9 @@ function escapeHtml(value) {
 
 function createLoadFailureHtml({ url, code, description } = {}) {
   const errorUrl = escapeHtml(url || "");
-  const errorDescription = escapeHtml(description || "Не удалось открыть страницу.");
+  const errorDescription = escapeHtml(
+    description || "Не удалось открыть страницу.",
+  );
   const errorCode = escapeHtml(code ?? "неизвестен");
 
   return `<!doctype html>

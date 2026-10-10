@@ -150,6 +150,14 @@ jobs:
           prerelease: true
           fail_on_unmatched_files: true
           body: |
+            New in ac3.15: interactive local recovery page instead of a blocking
+            native error dialog after failures of both official endpoints.
+            Portable config.json is watched for external URL edits while running.
+            Avoid duplicate navigation and preserve the user's corrected URL
+            during an in-flight failure. Windows CI verifies repeated invalid
+            then valid URL changes inside the SAME running installed and portable
+            process, including external config.json edits and offline recovery.
+
             New in ac3.14: fix Electron hidden-window false startup failures and
             disable background throttling, and recognize Lampa's first-run
             language chooser as a successfully loaded interactive screen. Try the official HTTPS fallback only

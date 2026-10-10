@@ -45,10 +45,13 @@ async function importSettings(settings, store, mainWindow, injectPlugin) {
 
   if (newUrl && newUrl !== currentUrlBefore) {
     await mainWindow.webContents.session.clearCache();
-    await mainWindow.loadURL(newUrl);
+    require("../windowManager").openLampaUrl(mainWindow, newUrl);
     shouldReload = true;
   } else if (currentUrl.includes(newUrl || currentUrlBefore)) {
-    mainWindow.webContents.reloadIgnoringCache();
+    require("../windowManager").openLampaUrl(
+      mainWindow,
+      newUrl || currentUrlBefore,
+    );
     shouldReload = true;
   }
 

@@ -1,13 +1,9 @@
 const fs = require("node:fs");
 const path = require("node:path");
 
-const PORTABLE_MARKER = "portable.flag";
-
 function resolvePortableRoot({
   env = process.env,
-  execPath = process.execPath,
   platform = process.platform,
-  fileExists = fs.existsSync,
 } = {}) {
   if (platform !== "win32") return null;
 
@@ -16,8 +12,7 @@ function resolvePortableRoot({
     return path.resolve(portableDir);
   }
 
-  const exeDir = path.dirname(execPath);
-  return fileExists(path.join(exeDir, PORTABLE_MARKER)) ? exeDir : null;
+  return null;
 }
 
 function configurePortableProfile(app, options) {

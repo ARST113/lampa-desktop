@@ -1,6 +1,9 @@
 const { ipcMain } = require("electron");
 
-function registerStoreHandlers(store) {
+function registerStoreHandlers(
+  store,
+  { getMainWindow, openLampaUrl } = require("../windowManager"),
+) {
   // URL changes must go through the single navigation controller.
   // An old onDidChange listener called BrowserWindow.loadURL directly and
   // raced the fallback controller, leaving the renderer blank.
@@ -8,7 +11,6 @@ function registerStoreHandlers(store) {
 
   ipcMain.handle("store-set", (event, key, value) => {
     if (key === "lampaUrl") {
-      const { getMainWindow, openLampaUrl } = require("../windowManager");
       const mainWindow = getMainWindow();
       if (
         !mainWindow ||

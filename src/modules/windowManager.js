@@ -270,7 +270,7 @@ function setupErrorHandler(window) {
   let recoveryShown = false;
 
   window.webContents.on("did-start-navigation", (_event, url, _inPlace, isMainFrame) => {
-    if (isMainFrame && /^https?:\\/\\//i.test(url)) {
+    if (isMainFrame && (url.startsWith("http://") || url.startsWith("https://"))) {
       recoveryShown = false;
     }
   });

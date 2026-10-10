@@ -912,14 +912,27 @@
           ),
         },
         onChange: async function (value) {
-          if (URL.canParse(value)) {
-            // Lampa.Settings.update();
-            Lampa.Noty.show(Lampa.Lang.translate("app_settings_lampa_url_ok"));
-            setTimeout(
-              async () => await window.electronAPI.store.set("lampaUrl", value),
-              1000,
+          let valid = false;
+          try {
+            const url = new URL(value);
+            valid = url.protocol === "http:" || url.protocol === "https:";
+          } catch {
+            valid = false;
+          }
+          if (!valid) {
+            Lampa.Noty.show(
+              Lampa.Lang.translate("app_settings_lampa_url_error"),
             );
-          } else {
+            return;
+          }
+
+          try {
+            // The main process validates and loads the address through the
+            // same navigation controller used at startup. Never schedule
+            // a second delayed store update after switching pages.
+            await window.electronAPI.store.set("lampaUrl", value);
+          } catch (error) {
+            console.error("Ошибка изменения URL Lampa:", error);
             Lampa.Noty.show(
               Lampa.Lang.translate("app_settings_lampa_url_error"),
             );

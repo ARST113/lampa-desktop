@@ -1,6 +1,7 @@
 # 🎬 Lampa Desktop
 
 ### 📥 Скачать последнюю версию (с поддержкой AC3/EAC3):
+
 [![Скачать для Windows](https://img.shields.io/badge/%D0%A1%D0%BA%D0%B0%D1%87%D0%B0%D1%82%D1%8C-Windows_x64-0078D6?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/ARST113/lampa-desktop/releases/download/v1.6.0-ac3.7/lampa-x64-1.6.0-ac3.7.exe)
 [![Скачать для Linux](https://img.shields.io/badge/%D0%A1%D0%BA%D0%B0%D1%87%D0%B0%D1%82%D1%8C-Linux_x86__64-FCC624?style=for-the-badge&logo=linux&logoColor=black)](https://github.com/ARST113/lampa-desktop/releases/download/v1.6.0-ac3.7/lampa-x86_64-1.6.0-ac3.7-linux-ac3.rpm)
 
@@ -128,3 +129,4 @@ node scripts/verify-electron.cjs dist/win-unpacked/Lampa.exe dist/win-unpacked/f
 статические сборки обеих архитектур упаковываются в `.app` вместе с приложением.
 Готовые сборки переносятся в релизы этого репозитория workflow
 `Publish application builds from the Electron fork`.
+```

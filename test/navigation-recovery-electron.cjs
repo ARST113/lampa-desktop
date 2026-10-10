@@ -9,110 +9,123 @@ const profile = path.join(root, ".cache", "navigation-recovery-test");
 fs.mkdirSync(profile, { recursive: true });
 app.setPath("userData", profile);
 
-let window;
 let server;
+const windows = [];
 const watchdog = setTimeout(() => app.exit(2), 30000);
 
 async function until(check, message, timeout = 5000) {
   const deadline = Date.now() + timeout;
   while (Date.now() < deadline) {
     if (await check()) return;
-    await new Promise((resolve) => setTimeout(resolve, 50));
+    await new Promise((resolve) => setTimeout(resolve, 40));
   }
   throw new Error(message);
+}
+
+function createTestWindow() {
+  const window = new BrowserWindow({
+    show: false,
+    backgroundColor: "#14161b",
+    webPreferences: {
+      preload: path.join(root, "src/preload.js"),
+      sandbox: false,
+      nodeIntegration: false,
+      contextIsolation: true,
+    },
+  });
+  windows.push(window);
+  return window;
 }
 
 app
   .whenReady()
   .then(async () => {
-    const navigation = require("../src/modules/windowManager");
+    const { createNavigationFallback } = require("../src/modules/navigationFallback");
     const store = require("../src/modules/storeManager");
 
     server = http.createServer((req, res) => {
-      if (req.url === "/redirect") {
-        res.writeHead(302, { Location: "/next" });
-        res.end();
+      res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+      if (req.url === "/blank") {
+        res.end("<!doctype html><title>Empty page</title>");
         return;
       }
-      res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
-      res.end(`<!doctype html><title>Local Lampa test</title>
-        <h1 id="page">${req.url}</h1>`);
+      res.end(
+        `<!doctype html><title>Lampa local test</title>
+        <body><div id="ready">Local Lampa loaded</div>
+        <script>window.Lampa = {};</script></body>`,
+      );
     });
     await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
-    const base = `http://127.0.0.1:${server.address().port}`;
+    const base = `http://127.0.0.1:${server.address().port}/`;
 
-    window = new BrowserWindow({
-      show: false,
-      webPreferences: {
-        preload: path.join(root, "src/preload.js"),
-        nodeIntegration: false,
-        contextIsolation: true,
-        sandbox: false,
+    // Bad network address: automatically switch to the configured fallback.
+    const window = createTestWindow();
+    let readyCount = 0;
+    let defaultFailures = 0;
+    const navigation = createNavigationFallback(window, store, {
+      defaultUrl: base,
+      timeoutMs: 1100,
+      pollMs: 25,
+      onReady: () => {
+        readyCount += 1;
+        window.show();
+      },
+      onUnavailable: () => {
+        defaultFailures += 1;
       },
     });
-    navigation.setupNavigationHandlers(window);
-    navigation.setupErrorHandler(window);
-    require("../src/modules/ipcHandlers/windowHandlers")(() => window);
+    navigation.open("http://127.0.0.1:1/wrong");
+    await until(() => readyCount === 1, "Failed URL did not fall back.");
+    assert.equal(window.webContents.getURL(), base);
+    assert.equal(store.get("lampaUrl"), base);
+    assert.equal(defaultFailures, 0);
+    assert.equal(window.isVisible(), true);
+    console.log("PASS: invalid network address switches to Lampa without white screen.");
 
-    await window.loadURL(base + "/");
-    window.webContents.executeJavaScript("location.assign('/next')");
-    await until(
-      async () =>
-        (await window.webContents
-          .executeJavaScript("document.querySelector('#page')?.textContent")
-          .catch(() => "")) === "/next",
-      "Same-site navigation was blocked.",
-    );
-    assert.equal(window.webContents.getURL(), base + "/next");
-    await window.loadURL(base + "/redirect");
-    assert.equal(window.webContents.getURL(), base + "/next");
-    console.log("PASS: same-origin navigation and HTTP redirects work.");
+    // Valid but empty HTML must also fall back instead of staying blank.
+    window.hide();
+    navigation.open(base + "blank");
+    await until(() => readyCount === 2, "Blank HTTP page did not fall back.");
+    assert.equal(window.webContents.getURL(), base);
+    assert.equal(store.get("lampaUrl"), base);
+    console.log("PASS: blank 200 OK document also falls back.");
 
-    // A local refusal reliably produces a main-frame network error.
-    await window.loadURL("http://127.0.0.1:1/failed").catch(() => {});
-    await until(
-      () => window.webContents.getURL().startsWith("data:text/html"),
-      "The error recovery page was not opened.",
-    );
-    await until(
-      async () =>
-        (await window.webContents
-          .executeJavaScript("Boolean(document.getElementById('retry'))")
-          .catch(() => false)) === true,
-      "The error recovery controls are not visible.",
-    );
-    const available = await window.webContents.executeJavaScript(
-      "Boolean(window.electronAPI?.loadUrl)",
-    );
-    assert.equal(available, true, "Preload IPC is missing on the error page");
-    console.log("PASS: a failed network load shows the recovery screen.");
+    // Malformed input never navigates to a browser error page.
+    window.hide();
+    navigation.open("notaurl");
+    await until(() => readyCount === 3, "Malformed URL did not open default.");
+    assert.equal(window.webContents.getURL(), base);
+    console.log("PASS: malformed URL opens the default directly.");
 
-    await window.webContents.executeJavaScript(`(() => {
-      document.getElementById("url").value = ${JSON.stringify(base + "/recovered")};
-      document.getElementById("retry").click();
-    })()`);
-    await until(
-      () => window.webContents.getURL() === base + "/recovered",
-      "The retry button did not navigate to the specified URL.",
-    );
-    await until(
-      async () =>
-        (await window.webContents
-          .executeJavaScript("document.querySelector('#page')?.textContent")
-          .catch(() => "")) === "/recovered",
-      "The recovered site did not render.",
-    );
-    assert.equal(store.get("lampaUrl"), base + "/recovered");
-    console.log("PASS: retry button restores a user-selected site via IPC.");
+    // When even the default fails, notify once rather than looping forever.
+    const second = createTestWindow();
+    let unavailable = 0;
+    const missingDefault = createNavigationFallback(second, store, {
+      defaultUrl: "http://127.0.0.1:1/",
+      timeoutMs: 500,
+      pollMs: 25,
+      onUnavailable: () => {
+        unavailable += 1;
+      },
+    });
+    missingDefault.open("definitely invalid");
+    await until(() => unavailable === 1, "Unreachable default was not reported.");
+    await new Promise((resolve) => setTimeout(resolve, 400));
+    assert.equal(unavailable, 1);
+    assert.equal(second.isVisible(), false);
+    console.log("PASS: unreachable default stops retrying and never shows white.");
 
     clearTimeout(watchdog);
+    for (const item of windows) item.destroy();
     server.close();
-    window.destroy();
     app.exit(0);
   })
   .catch((error) => {
     console.error(error);
     clearTimeout(watchdog);
+    for (const item of windows) {
+      if (!item.isDestroyed()) item.destroy();
+    }
     if (server) server.close();
     app.exit(1);
   });

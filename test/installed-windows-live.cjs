@@ -95,6 +95,7 @@ async function snapshot(tab) {
         document.querySelector("body > .lang .lang__selector-item[data-code]")
       ),
       documentVisibility: document.visibilityState,
+      documentStart: performance.timeOrigin,
       title: document.title,
       body: (document.body?.innerText || "").slice(0, 350)
     }))()`,
@@ -197,6 +198,112 @@ async function runScenario(name, configuredUrl, check) {
   }
 }
 
+
+async function runSequentialScenario() {
+  const name = "same-process-failure-and-correction";
+  const debugPort = await availablePort();
+  fs.writeFileSync(
+    configPath,
+    JSON.stringify({
+      lampaUrl: DEFAULT_URL,
+      webSecurity: true,
+      autoUpdate: false,
+      tsAutoStart: false,
+    }),
+  );
+  const env = { ...process.env };
+  delete env.ELECTRON_RUN_AS_NODE;
+  if (mode === "installed") delete env.PORTABLE_EXECUTABLE_DIR;
+  let child;
+  let latest = null;
+  let lastTab = null;
+  let stage = "startup";
+  let logs = "";
+  const ready = (page) =>
+    page && page.hasLampa &&
+    ((page.head && page.wrap && page.content) || page.languageChoice) &&
+    page.documentVisibility === "visible";
+  async function waitFor(url, afterStart = 0) {
+    const deadline = Date.now() + 50000;
+    while (Date.now() < deadline) {
+      if (child.exitCode !== null) throw new Error("Process exited: " + child.exitCode);
+      try {
+        const tab = await tabFor(debugPort);
+        if (tab) {
+          lastTab = tab;
+          latest = await snapshot(tab);
+          const configured = JSON.parse(fs.readFileSync(configPath, "utf8")).lampaUrl;
+          if (
+            ready(latest) &&
+            new URL(latest.url).hostname === new URL(url).hostname &&
+            latest.documentStart !== afterStart &&
+            new URL(configured).hostname === new URL(url).hostname
+          ) {
+            console.log("PASS: " + mode + " " + stage + " " + latest.url);
+            report.push({ mode, name: stage, status: "passed", state: latest, configured });
+            return latest.documentStart;
+          }
+        }
+      } catch {
+        // A failing page and a renderer replacement are expected mid-navigation.
+      }
+      await delay(200);
+    }
+    throw new Error("Failed to navigate after " + stage + "; state=" + JSON.stringify(latest));
+  }
+  async function setThroughSettings(url) {
+    const tab = await tabFor(debugPort);
+    const result = await cdp(tab.webSocketDebuggerUrl, "Runtime.evaluate", {
+      expression: "window.electronAPI.store.set('lampaUrl'," + JSON.stringify(url) + ")",
+      awaitPromise: true,
+      returnByValue: true,
+    });
+    if (result.exceptionDetails) throw new Error(JSON.stringify(result.exceptionDetails));
+  }
+  function editConfig(url) {
+    const current = JSON.parse(fs.readFileSync(configPath, "utf8"));
+    current.lampaUrl = url;
+    fs.writeFileSync(configPath, JSON.stringify(current));
+  }
+  try {
+    child = spawn(
+      executable,
+      ["--remote-debugging-port=" + debugPort, "--remote-allow-origins=*"],
+      { env, windowsHide: true, stdio: ["ignore", "pipe", "pipe"] },
+    );
+    child.stdout.on("data", (data) => { logs = (logs + String(data)).slice(-10000); });
+    child.stderr.on("data", (data) => { logs = (logs + String(data)).slice(-10000); });
+
+    stage = "initial-live";
+    let start = await waitFor(DEFAULT_URL);
+    stage = "first-invalid-settings";
+    await setThroughSettings("http://127.0.0.1:1/broken-one");
+    start = await waitFor(DEFAULT_URL, start);
+    stage = "correct-settings-after-failure";
+    await setThroughSettings(BACKUP_URL);
+    start = await waitFor(BACKUP_URL, start);
+    stage = "second-invalid-settings";
+    await setThroughSettings("http://127.0.0.1:1/broken-two");
+    start = await waitFor(DEFAULT_URL, start);
+    stage = "manual-config-correction-while-running";
+    editConfig(BACKUP_URL);
+    start = await waitFor(BACKUP_URL, start);
+    stage = "third-invalid-settings";
+    await setThroughSettings("http://127.0.0.1:1/broken-three");
+    start = await waitFor(DEFAULT_URL, start);
+    stage = "correct-settings-after-three-failures";
+    await setThroughSettings(BACKUP_URL);
+    await waitFor(BACKUP_URL, start);
+  } catch (error) {
+    if (lastTab) await capture(lastTab, stage);
+    console.error("FAIL: " + mode + " " + stage + " " + error.message + "\n" + logs);
+    report.push({ mode, name: stage, status: "failed", error: error.message, state: latest, logs });
+    throw error;
+  } finally {
+    await stop(child);
+  }
+}
+
 async function main() {
   try {
     const loaded = (page) =>
@@ -218,6 +325,10 @@ async function main() {
     await runScenario("manual-https-config", BACKUP_URL, (page) =>
       loaded(page) && new URL(page.url).host === new URL(BACKUP_URL).host
     );
+
+    // Keep the actual executable alive while repeatedly switching from
+    // failed to valid addresses, including an on-disk config edit.
+    await runSequentialScenario();
   } finally {
     fs.writeFileSync(
       path.join("dist", "lampa-live-" + mode + ".json"),

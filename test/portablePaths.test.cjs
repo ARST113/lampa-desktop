@@ -24,15 +24,30 @@ test("portable EXE uses launcher directory instead of extracted runtime director
   }
 });
 
-test("unpacked ZIP recognizes marker and keeps userData next to Lampa.exe", () => {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), "lampa-portable-zip-"));
+test("ZIP-only marker no longer enables a separate profile", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "lampa-former-zip-"));
   try {
-    fs.writeFileSync(path.join(root, "portable.flag"), "portable\n");
+    fs.writeFileSync(path.join(root, "portable.flag"), "unused");
+    const app = { setPath: () => assert.fail("must not alter installed profile") };
+    const options = {
+      env: {},
+      execPath: path.join(root, "Lampa.exe"),
+      platform: "win32",
+    };
+    assert.equal(resolvePortableRoot(options), null);
+    assert.equal(configurePortableProfile(app, options), null);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("portable EXE configures userData and sessionData next to the launcher", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "lampa-portable-"));
+  try {
     const calls = [];
     const app = { setPath: (name, dir) => calls.push([name, dir]) };
     const result = configurePortableProfile(app, {
-      env: {},
-      execPath: path.join(root, "Lampa.exe"),
+      env: { PORTABLE_EXECUTABLE_DIR: root },
       platform: "win32",
     });
     assert.equal(result, path.join(root, "LampaData"));

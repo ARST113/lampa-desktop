@@ -2,14 +2,15 @@ const { readFileSync } = require("fs");
 const path = require("node:path");
 const lampaInitializer = require("./lampaInitializer");
 
+function isHttpPage(url) {
+  return url.startsWith("http://") || url.startsWith("https://");
+}
+
 function setupPluginHandler(mainWindow) {
   mainWindow.webContents.on("did-finish-load", async () => {
     try {
-      // The data: recovery screen and unrelated websites must not start a
-      // permanent Lampa readiness polling loop.
-      const currentUrl = mainWindow.webContents.getURL();
-      (!mainWindow.webContents.getURL().startsWith("http://") &&
-        !mainWindow.webContents.getURL().startsWith("https://"))
+      // Do not attempt to inject into the data: recovery screen.
+      if (!isHttpPage(mainWindow.webContents.getURL())) return;
 
       const ready = await waitForLampaReady(mainWindow);
       if (!ready) {
@@ -26,12 +27,12 @@ function setupPluginHandler(mainWindow) {
 }
 
 async function waitForLampaReady(mainWindow) {
-  // A bad URL or a non-Lampa page must not poll the renderer forever.
+  // Failed loads and non-Lampa sites cannot poll the renderer forever.
   for (let attempt = 0; attempt < 150; attempt++) {
     if (
       mainWindow.isDestroyed() ||
       mainWindow.webContents.isDestroyed() ||
-      !/^https?:\\/\\//i.test(mainWindow.webContents.getURL())
+      !isHttpPage(mainWindow.webContents.getURL())
     ) {
       return false;
     }

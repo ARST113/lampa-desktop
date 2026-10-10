@@ -10,7 +10,7 @@ const {
   createLoadFailureUrl,
 } = require("../src/modules/pageNavigation");
 
-test("accepts any full HTTP or HTTPS Lampa address without replacing its host", () => {
+test("accepts any full HTTP or HTTPS URL", () => {
   assert.equal(normalizeHttpUrl(" http://lampac.fun/ "), "http://lampac.fun/");
   assert.equal(normalizeHttpUrl("https://lampac.fun/"), "https://lampac.fun/");
   assert.equal(
@@ -20,8 +20,14 @@ test("accepts any full HTTP or HTTPS Lampa address without replacing its host", 
   assert.equal(DEFAULT_LAMPA_URL, "http://lampa.mx");
 });
 
-test("rejects unsupported protocols and malformed URLs before loading", () => {
-  for (const value of ["", "lampac.fun", "javascript:alert(1)", "file:///tmp/a", "data:text/html,x"]) {
+test("rejects unsupported protocols and malformed URLs", () => {
+  for (const value of [
+    "",
+    "lampac.fun",
+    "javascript:alert(1)",
+    "file:///tmp/a",
+    "data:text/html,x",
+  ]) {
     assert.throws(() => normalizeHttpUrl(value), TypeError);
   }
 });
@@ -51,10 +57,13 @@ test("permits same-site navigation and HTTP to HTTPS upgrade", () => {
     ),
     false,
   );
-  assert.equal(isInternalNavigation("javascript:alert(1)", "http://lampac.fun/"), false);
+  assert.equal(
+    isInternalNavigation("javascript:alert(1)", "http://lampac.fun/"),
+    false,
+  );
 });
 
-test("error screen is a standalone document and does not evaluate unsafe URLs", () => {
+test("error screen escapes untrusted error content", () => {
   const html = createLoadFailureHtml({
     url: 'https://invalid.example/?x="><script>alert(1)</script>',
     code: -105,
@@ -70,7 +79,7 @@ test("error screen is a standalone document and does not evaluate unsafe URLs", 
   assert.match(decodeURIComponent(target.split(",")[1]), /<!doctype html>/);
 });
 
-test("window manager restores IPC navigation and never document.writes on a failed load", () => {
+test("error recovery hooks are wired to IPC", () => {
   const root = path.join(__dirname, "..", "src");
   const manager = fs.readFileSync(
     path.join(root, "modules", "windowManager.js"),

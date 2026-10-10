@@ -169,7 +169,15 @@ function isSameNavigation(actual, expected) {
   try {
     const a = new URL(actual);
     const b = new URL(expected);
-    return a.hostname === b.hostname && a.port === b.port;
+    if (a.hostname === b.hostname && a.port === b.port) return true;
+    // The official HTTP entry point can redirect to the HTTPS mirror.
+    const official = new Set(["lampa.mx", "cf.lampa.mx"]);
+    return (
+      !a.port &&
+      !b.port &&
+      official.has(a.hostname) &&
+      official.has(b.hostname)
+    );
   } catch {
     return false;
   }

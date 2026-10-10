@@ -12,7 +12,14 @@ const LAMPA_RENDERED_SCRIPT = `(() => {
   // Hidden BrowserWindow may report zero layout width on Windows.
   // The app is ready when Lampa creates its real interface. Some forks
   // render the shell before (or without) setting window.appready.
-  return Boolean(window.Lampa && head && shell && content);
+  // Fresh profiles display Lampa's language selector before startApp()
+  // renders #app. This is a working welcome screen, not a failed load.
+  const languageChoice = document.querySelector(
+    "body > .lang .lang__selector-item[data-code]",
+  );
+  return Boolean(
+    window.Lampa && ((head && shell && content) || languageChoice)
+  );
 })()`;
 
 function createNavigationFallback(

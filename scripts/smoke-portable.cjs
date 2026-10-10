@@ -140,6 +140,34 @@ async function runApp({ url, port, origin, required }) {
   return result;
 }
 
+async function runFailedNavigationProbe(port = 9450) {
+  const badUrl = "http://127.0.0.1:1/";
+  fs.mkdirSync(dataDir, { recursive: true });
+  fs.writeFileSync(config, JSON.stringify({ lampaUrl: badUrl, autoUpdate: false }));
+  const child = spawn(executable, [`--remote-debugging-port=${port}`], {
+    cwd: packageDir,
+    windowsHide: true,
+    env: { ...process.env, ELECTRON_ENABLE_LOGGING: "1" },
+  });
+  try {
+    const result = await probe(port, "file:", 10);
+    console.log("Error page probe:", JSON.stringify(result));
+    assert.ok(result?.url?.startsWith("file:"), "Error page did not load from file");
+    assert.match(result.title, /ошибка загрузки/);
+    assert.match(result.bodyText, /Не удалось открыть сервер Lampa/);
+    const pages = await getTargets(port);
+    const target = pages.find((page) => page.url.startsWith("file:"));
+    assert.equal(
+      await evaluate(target, "Boolean(window.electronAPI && window.electronAPI.loadUrl)"),
+      true,
+      "Electron preload API is missing on the error page",
+    );
+  } finally {
+    stopTree(child);
+    await wait(1200);
+  }
+}
+
 async function main() {
   if (!fs.existsSync(executable)) throw new Error(`Missing ${executable}`);
   const fixture = http.createServer((request, response) => {
@@ -156,6 +184,7 @@ async function main() {
   const fixtureUrl = `http://127.0.0.1:${address.port}/`;
   try {
     await runApp({ url: fixtureUrl, port: 9444, origin: fixtureUrl, required: true });
+    await runFailedNavigationProbe();
     // Real-site diagnostics: log failures without failing the deterministic fixture test.
     await runApp({
       url: "http://lampa.mx",

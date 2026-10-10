@@ -118,8 +118,9 @@ test("readiness requires the actual Lampa interface, not just a global", () => {
     path.join(__dirname, "..", "src", "modules", "navigationFallback.js"),
     "utf8",
   );
-  assert.equal(src.includes("window.appready === true"), true);
   assert.equal(src.includes('querySelector(".head")'), true);
+  assert.equal(src.includes("getBoundingClientRect"), false);
+  assert.equal(src.includes("window.appready === true"), false);
   assert.equal(src.includes('querySelector(".wrap")'), true);
   assert.equal(src.includes("Boolean(window.Lampa && document.body)"), false);
 });

@@ -1,6 +1,7 @@
 const { autoUpdater } = require("electron-updater");
 const { app, dialog, shell } = require("electron");
 const store = require("./storeManager");
+const { resolvePortableRoot } = require("./portablePaths");
 
 let initialized = false;
 let checking = null;
@@ -43,6 +44,13 @@ function offerInstall() {
 }
 
 async function checkForAppUpdates(manual = true) {
+  if (resolvePortableRoot()) {
+    return {
+      status: "manual",
+      message:
+        "Portable-версия обновляется вручную. Скачайте новый ZIP или EXE на странице GitHub Releases; папку LampaData сохраняйте.",
+    };
+  }
   if (!app.isPackaged)
     return {
       status: "unavailable",
@@ -70,6 +78,8 @@ async function checkForAppUpdates(manual = true) {
 }
 
 function setupAutoUpdater() {
+  // Portable builds cannot use the NSIS installer update flow.
+  if (resolvePortableRoot()) return;
   if (initialized) return;
   initialized = true;
   autoUpdater.logger = console;

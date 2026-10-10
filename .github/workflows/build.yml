@@ -18,7 +18,7 @@ permissions:
 
 concurrency:
   group: lampa-windows-ac3-eac3
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   build-windows:

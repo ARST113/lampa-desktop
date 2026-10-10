@@ -8,6 +8,8 @@ on:
         type: boolean
         default: true
   push:
+    branches:
+      - main
     tags:
       - "v*-ac3.*"
 
@@ -45,10 +47,10 @@ jobs:
         run: yarn exec eslint src scripts/verify-electron.cjs
 
       - name: Test application updates and subtitles
-        run: node --test test/autoUpdater.test.cjs test/subtitles.test.cjs test/matroska.test.cjs
+        run: node --test test/autoUpdater.test.cjs test/portablePaths.test.cjs test/subtitles.test.cjs test/matroska.test.cjs
 
       - name: Check changed file formatting
-        run: yarn exec prettier package.json build/subtitle-tools.json scripts/verify-electron.cjs .github/workflows/build.yml src/modules/autoUpdater.js src/modules/windowManager.js src/modules/ipcHandlers/otherHandlers.js src/modules/ipcHandlers/subtitleHandlers.js src/modules/ipcHandlers/index.js src/modules/subtitleExtractor.js src/modules/matroskaSubtitles.js src/modules/subtitleStream.js src/modules/playerOptionsInterceptor.js src/modules/pluginHandler.js src/subtitleBridge.js src/preload.js src/plugin.js test/*.cjs README.md --check
+        run: yarn exec prettier package.json build/subtitle-tools.json scripts/verify-electron.cjs .github/workflows/build.yml src/main.js src/modules/portablePaths.js src/modules/torrServerManager.js src/modules/autoUpdater.js src/modules/windowManager.js src/modules/ipcHandlers/otherHandlers.js src/modules/ipcHandlers/subtitleHandlers.js src/modules/ipcHandlers/index.js src/modules/subtitleExtractor.js src/modules/matroskaSubtitles.js src/modules/subtitleStream.js src/modules/playerOptionsInterceptor.js src/modules/pluginHandler.js src/subtitleBridge.js src/preload.js src/plugin.js test/*.cjs README.md --check
 
       - name: Download and verify custom Electron
         shell: pwsh
@@ -61,7 +63,7 @@ jobs:
       - name: Test real subtitle playback and seeking
         run: node test/run-subtitle-integration.cjs
 
-      - name: Package Windows x64 installer
+      - name: Package Windows x64 installer and portable executable
         run: yarn build-win
 
       - name: Verify packaged runtime and installer
@@ -85,19 +87,52 @@ jobs:
           if ($env:GITHUB_REF_TYPE -eq 'tag' -and $env:GITHUB_REF_NAME -ne $tag) { throw 'Tag and package version differ.' }
           $installer = Get-Item -LiteralPath "dist/lampa-x64-$($package.version).exe"
           if ($installer.Length -lt 10MB) { throw 'Installer is unexpectedly small.' }
+          $portableExe = Get-Item -LiteralPath "dist/lampa-portable-x64-$($package.version).exe"
+          if ($portableExe.Length -lt 10MB) { throw 'Portable EXE is unexpectedly small.' }
+
+          # Only the ZIP gets this marker. The NSIS installer keeps its normal profile.
+          Set-Content -LiteralPath 'dist/win-unpacked/portable.flag' -Value 'Windows portable profile: LampaData' -Encoding ascii -NoNewline
+          Add-Type -AssemblyName System.IO.Compression
+          $zipPath = Join-Path (Resolve-Path 'dist').Path "lampa-portable-x64-$($package.version).zip"
+          [System.IO.Compression.ZipFile]::CreateFromDirectory(
+            (Resolve-Path 'dist/win-unpacked').Path,
+            $zipPath,
+            [System.IO.Compression.CompressionLevel]::Optimal,
+            $false
+          )
+          $zip = Get-Item -LiteralPath $zipPath
+          if ($zip.Length -lt 10MB) { throw 'Portable ZIP is unexpectedly small.' }
+          $archive = [System.IO.Compression.ZipFile]::OpenRead($zipPath)
+          try {
+            $zipEntries = @($archive.Entries | ForEach-Object { $_.FullName })
+            foreach ($required in @(
+              'Lampa.exe',
+              'ffmpeg.dll',
+              'resources/app.asar',
+              'resources/subtitle-tools/ffmpeg.exe',
+              'resources/subtitle-tools/ffprobe.exe',
+              'portable.flag'
+            )) {
+              if ($required -notin $zipEntries) { throw "Portable ZIP is missing $required" }
+            }
+          } finally {
+            $archive.Dispose()
+          }
+
           "tag=$tag" >> $env:GITHUB_OUTPUT
-          Get-ChildItem -Path dist/*.exe,dist/*.blockmap,dist/ac3.yml | ForEach-Object {
+          Get-ChildItem -Path dist/*.exe,dist/*.zip,dist/*.blockmap,dist/ac3.yml | ForEach-Object {
             $hash = (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
             "$hash  $($_.Name)"
           } | Set-Content -LiteralPath dist/SHASUMS256.txt -Encoding utf8
 
-      - name: Upload installer artifact
+      - name: Upload Windows installers and portable archives
         uses: actions/upload-artifact@v6
         with:
-          name: lampa-windows-x64-ac3-eac3
+          name: lampa-windows-x64-ac3-eac3-portable
           if-no-files-found: error
           path: |
             dist/*.exe
+            dist/*.zip
             dist/*.blockmap
             dist/ac3.yml
             dist/SHASUMS256.txt
@@ -108,7 +143,7 @@ jobs:
         with:
           tag_name: ${{ steps.verify.outputs.tag }}
           target_commitish: ${{ github.sha }}
-          name: Lampa ${{ steps.verify.outputs.tag }} — Windows x64 AC3/EAC3
+          name: Lampa ${{ steps.verify.outputs.tag }} — Windows x64 AC3/EAC3 + Portable
           prerelease: true
           fail_on_unmatched_files: true
           body: |
@@ -132,9 +167,18 @@ jobs:
             Runtime: https://github.com/ARST113/electron/releases/tag/v44.4.4-ac3-eac3
             The build verifies the ZIP checksum, packaged Electron version and unchanged custom ffmpeg.dll.
 
-            Download the `.exe` installer below. SHA-256 checksums are in SHASUMS256.txt.
+            Windows download choices:
+            - `lampa-portable-x64-*.zip` — recommended, extract and run Lampa.exe.
+            - `lampa-portable-x64-*.exe` — standalone portable launcher.
+            - `lampa-x64-*.exe` — standard NSIS installer.
+
+            Portable settings, Chromium profile, and TorrServer data are stored in the LampaData
+            directory next to the portable launcher. Keep this directory when replacing binaries.
+            Portable builds use manual application updates to avoid launching the NSIS installer.
+            SHA-256 checksums are in SHASUMS256.txt.
           files: |
             dist/*.exe
+            dist/*.zip
             dist/*.blockmap
             dist/ac3.yml
             dist/SHASUMS256.txt

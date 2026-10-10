@@ -75,6 +75,8 @@ function createWindow() {
       sandbox: false,
       contextMenu: false,
       webSecurity: Boolean(store.get("webSecurity")),
+      // Lampa must execute scripts and produce its UI while the window is hidden.
+      backgroundThrottling: false,
     },
     show: false,
     backgroundColor: "#14161b",
@@ -267,7 +269,10 @@ function setupErrorHandler(window, { onReady = () => window.show() } = {}) {
           type: "error",
           title: "Lampa недоступна",
           message: "Не удалось открыть стандартный адрес http://lampa.mx.",
-          detail: "Проверьте подключение к интернету и повторите попытку.",
+          detail:
+            "Проверены основной адрес и резервное зеркало. " +
+            String(error?.message || error) +
+            "\nПроверьте сеть или измените URL в конфигурации.",
           buttons: ["Повторить", "Закрыть"],
           defaultId: 0,
           cancelId: 1,

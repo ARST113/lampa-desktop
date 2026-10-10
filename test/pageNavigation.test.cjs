@@ -90,7 +90,10 @@ test("failed URL handling never displays a recovery HTML page", () => {
   assert.match(manager, /createNavigationFallback/);
   assert.match(manager, /onReady: showReadyWindow/);
   assert.match(fallback, /store\.set\("lampaUrl", fallbackUrl\)/);
-  assert.doesNotMatch(manager + fallback, /createLoadFailureUrl|document\.write/);
+  assert.doesNotMatch(
+    manager + fallback,
+    /createLoadFailureUrl|document\.write/,
+  );
 });
 
 test("manual URL changes go through the fallback controller", () => {

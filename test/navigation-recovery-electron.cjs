@@ -153,7 +153,11 @@ app.whenReady().then(async () => {
   // Syntactically invalid values do not initiate any network call.
   const beforeInvalid = requests.length;
   navigation.open("notaurl");
-  await until(screenIsRecovery, "Malformed URL did not show editor");
+  await until(async () =>
+    (await screenIsRecovery()) &&
+    (await window.webContents.executeJavaScript('document.querySelector("#url").value')) === "notaurl",
+    "Malformed URL did not show editor",
+  );
   assert.equal(requests.length, beforeInvalid);
   console.log("PASS: malformed address opens editor without a network request");
 

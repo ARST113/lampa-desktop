@@ -175,7 +175,14 @@ function createNavigationFallback(
     }, timeoutMs);
 
     try {
-      Promise.resolve(window.loadURL(target)).catch((error) => fail(id, error));
+      Promise.resolve(window.loadURL(target)).catch((error) => {
+        // Chromium may reject the NEW loadURL promise with an old navigation's
+        // ERR_ABORTED when a previously failed page is replaced quickly.
+        // That is not evidence that the new server is unavailable.
+        if (error?.errno === -3 || error?.code === "ERR_ABORTED" ||
+            (error?.url && !isSameNavigation(error.url, target))) return;
+        fail(id, error);
+      });
     } catch (error) {
       fail(id, error);
     }

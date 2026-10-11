@@ -91,7 +91,7 @@ function createNavigationFallback(
     let target;
     try {
       target = normalizeHttpUrl(value);
-    } catch (error) {
+    } catch {
       clearTimers();
       current = null;
       lastTarget = String(value ?? "");

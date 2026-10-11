@@ -167,7 +167,7 @@ async function runScenario(name, configuredUrl, check) {
     child.stderr.on("data", (data) => {
       logs = (logs + String(data)).slice(-6000);
     });
-    const timeoutMs = 85000;
+    const timeoutMs = name === "custom-lampac" ? 30000 : 85000;
     const deadline = Date.now() + timeoutMs;
     while (Date.now() < deadline) {
       if (child.exitCode !== null) {
@@ -369,7 +369,7 @@ async function main() {
     // Additional live diagnosis for the user's personal Lampa entry point.
     // Its availability can depend on server policy or runner geography; this
     // is recorded but does not mask regressions in our deterministic tests.
-    if (process.env.TEST_CUSTOM_LAMPAC === "1") {
+    if (process.env.TEST_CUSTOM_LAMPAC === "1" && mode === "installed") {
       try {
         await runScenario("custom-lampac", "http://lampac.fun/", page =>
           page.hasLampa &&

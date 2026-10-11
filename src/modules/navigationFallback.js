@@ -2,7 +2,7 @@ const { normalizeHttpUrl } = require("./pageNavigation");
 
 // A single URL is attempted once. Any failure immediately returns control
 // to the local URL editor; there is no automatic fallback or mirror cascade.
-const STARTUP_TIMEOUT_MS = 12000;
+const STARTUP_TIMEOUT_MS = 3000;
 const READINESS_POLL_MS = 200;
 
 const LAMPA_RENDERED_SCRIPT = `(() => {
@@ -78,9 +78,10 @@ function createNavigationFallback(
     if (!isCurrent(id)) return;
 
     if (ready) {
+      const loadMs = Date.now() - current.startedAt;
       clearTimers();
       current = null;
-      console.info("Lampa URL открыт:", window.webContents.getURL());
+      console.info("Lampa URL открыт:", window.webContents.getURL(), "за", loadMs, "мс");
       onReady();
       return;
     }
@@ -108,11 +109,11 @@ function createNavigationFallback(
     clearTimers();
     lastTarget = target;
     const id = ++sequence;
-    current = { id, url: target };
+    current = { id, url: target, startedAt: Date.now() };
     window.setTitle?.("Lampa — подключение: " + target);
     window.setProgressBar?.(0.2);
     timeout = setTimeout(() => {
-      fail(id, new Error("Сайт не ответил или не запустил интерфейс за 12 секунд."));
+      fail(id, new Error("Сайт не ответил или не запустил интерфейс за 3 секунды."));
     }, timeoutMs);
 
     try {

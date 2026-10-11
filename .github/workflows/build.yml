@@ -185,6 +185,12 @@ jobs:
           prerelease: true
           fail_on_unmatched_files: true
           body: |
+            New in ac3.18: reduce the one-shot Lampa readiness limit from
+            12 seconds to 3 seconds. Valid sites were verified through
+            cold-start and repeated navigation tests in Windows installer,
+            Portable EXE and unpacked Portable ZIP. Connection refusal still
+            opens the URL correction form immediately without retries.
+
             New in ac3.17: try a configured URL only ONCE. On first
             network or interface failure, immediately show a local,
             Android-style URL correction panel with the failed URL, a

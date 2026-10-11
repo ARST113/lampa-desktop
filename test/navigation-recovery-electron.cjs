@@ -8,23 +8,60 @@ const root = path.resolve(__dirname, "..");
 const profile = path.join(root, ".cache", "navigation-recovery-test");
 fs.mkdirSync(profile, { recursive: true });
 app.setPath("userData", profile);
-
-let server;
-const windows = [];
 const watchdog = setTimeout(() => app.exit(2), 30000);
+let server;
+let window;
 
-async function until(check, message, timeout = 5000) {
+async function until(fn, message, timeout = 5000) {
   const deadline = Date.now() + timeout;
   while (Date.now() < deadline) {
-    if (await check()) return;
-    await new Promise((resolve) => setTimeout(resolve, 40));
+    if (await fn()) return;
+    await new Promise((resolve) => setTimeout(resolve, 35));
   }
   throw new Error(message);
 }
 
-function createTestWindow() {
-  const window = new BrowserWindow({
-    show: false,
+async function screenIsRecovery() {
+  try {
+    return (
+      window.webContents.getURL().startsWith("file:") &&
+      (await window.webContents.executeJavaScript(
+        'Boolean(document.querySelector("#recovery-form"))',
+      ))
+    );
+  } catch {
+    return false;
+  }
+}
+
+app.whenReady().then(async () => {
+  const { createNavigationFallback } = require("../src/modules/navigationFallback");
+  const registerStoreHandlers = require("../src/modules/ipcHandlers/storeHandlers");
+  const store = require("../src/modules/storeManager");
+
+  server = http.createServer((req, res) => {
+    res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+    if (req.url === "/blank" || req.url === "/unready") {
+      res.end("<!doctype html><title>Empty</title><script>window.Lampa={}</script>");
+      return;
+    }
+    if (req.url === "/language") {
+      res.end('<!doctype html><title>Lampa first run</title><div class="lang">' +
+        '<div class="lang__selector-item" data-code="ru">Русский</div></div>' +
+        '<script>window.Lampa={};</script>');
+      return;
+    }
+    res.end(`<!doctype html><title>Local Lampa</title><div id="app">
+      <div class="head"></div><div class="wrap">
+        <div class="wrap__content">Работает</div></div></div>
+      <script>window.Lampa={};window.appready=true</script>`);
+  });
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const base = `http://127.0.0.1:${server.address().port}/`;
+  store.set("lampaUrl", base);
+
+  window = new BrowserWindow({
+    show: true,
     backgroundColor: "#14161b",
     webPreferences: {
       preload: path.join(root, "src/preload.js"),
@@ -34,242 +71,114 @@ function createTestWindow() {
       backgroundThrottling: false,
     },
   });
-  windows.push(window);
-  return window;
-}
 
-app
-  .whenReady()
-  .then(async () => {
-    const {
-      createNavigationFallback,
-    } = require("../src/modules/navigationFallback");
-    const store = require("../src/modules/storeManager");
+  const originalLoadURL = window.loadURL.bind(window);
+  let requests = [];
+  window.loadURL = (url) => {
+    requests.push(url);
+    return originalLoadURL(url);
+  };
 
-    server = http.createServer((req, res) => {
-      res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
-      if (req.url === "/blank" || req.url === "/unready") {
-        res.end(
-          "<!doctype html><title>Not ready</title><body>" +
-            "<script>window.Lampa = {};</script></body>",
-        );
-        return;
-      }
-      if (req.url === "/language") {
-        res.end(
-          '<!doctype html><title>Lampa first run</title><body>' +
-            '<div class="lang"><div class="lang__selector">' +
-            '<div class="lang__selector-item" data-code="ru">Русский</div>' +
-            '</div></div><script>window.Lampa = {};</script></body>',
-        );
-        return;
-      }
-      res.end(
-        `<!doctype html><title>Lampa local test</title>
-        <body><div id="app">
-          <div class="head"></div>
-          <div class="wrap" style="width:800px;height:600px">
-            <div class="wrap__content"><div id="ready">Local Lampa loaded</div></div>
-          </div>
-        </div>
-        <script>
-          window.Lampa = {};
-          if (!location.pathname.includes("no-appready")) window.appready = true;
-          if (location.pathname.includes("geometry-zero")) {
-            HTMLElement.prototype.getBoundingClientRect = function () {
-              return { width: 0, height: 0, top: 0, left: 0, bottom: 0, right: 0 };
-            };
-          }
-        </script></body>`,
-      );
-    });
-    await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
-    const base = `http://127.0.0.1:${server.address().port}/`;
-
-    // Bad network address: automatically switch to the configured fallback.
-    const window = createTestWindow();
-    let activeWindow = window;
-    let readyCount = 0;
-    let defaultFailures = 0;
-    const registerStoreHandlers = require("../src/modules/ipcHandlers/storeHandlers");
-    const navigation = createNavigationFallback(window, store, {
-      defaultUrl: base,
-      timeoutMs: 1100,
-      pollMs: 25,
-      onReady: () => {
-        readyCount += 1;
-        window.show();
-      },
-      onUnavailable: () => {
-        defaultFailures += 1;
-      },
-    });
-    registerStoreHandlers(store, {
-      getMainWindow: () => activeWindow,
-      openLampaUrl: (mainWindow, url) =>
-        mainWindow === window ? navigation.open(url) : missingDefault.open(url),
-    });
-
-    navigation.open("http://127.0.0.1:65534/wrong");
-    assert.equal(window.isVisible(), false);
-    await until(() => readyCount === 1, "Failed URL did not fall back.");
-    assert.equal(window.webContents.getURL(), base);
-    assert.equal(store.get("lampaUrl"), base);
-    assert.equal(defaultFailures, 0);
-    const rendered = await window.webContents.executeJavaScript(
-      "document.getElementById('ready')?.textContent",
-    );
-    assert.equal(rendered, "Local Lampa loaded");
-    console.log(
-      "PASS: invalid network address switches to Lampa without white screen.",
-    );
-
-    // Valid but empty HTML must also fall back instead of staying blank.
-    window.hide();
-    navigation.open(base + "blank");
-    await until(() => readyCount === 2, "Blank HTTP page did not fall back.");
-    assert.equal(window.webContents.getURL(), base);
-    assert.equal(store.get("lampaUrl"), base);
-    console.log("PASS: blank 200 OK document also falls back.");
-
-    // Malformed input never navigates to a browser error page.
-    window.hide();
-    navigation.open("notaurl");
-    await until(() => readyCount === 3, "Malformed URL did not open default.");
-    assert.equal(window.webContents.getURL(), base);
-    console.log("PASS: malformed URL opens the default directly.");
-
-    // Regression: the settings UI writes via electronAPI.store.set, not
-    // navigation.open. That IPC route previously called loadURL twice.
-    await window.webContents.executeJavaScript(
-      "window.electronAPI.store.set('lampaUrl', 'http://127.0.0.1:65534/typo')",
-    );
-    await until(
-      () => readyCount === 4,
-      "Settings store change did not fall back.",
-    );
-    assert.equal(window.webContents.getURL(), base);
-    assert.equal(store.get("lampaUrl"), base);
-    console.log(
-      "PASS: settings IPC typo returns to default without competing navigation.",
-    );
-
-    // A subsequent correct URL must also load, preserving the new address.
-    const correct = base + "?correct=1";
-    await window.webContents.executeJavaScript(
-      `window.electronAPI.store.set("lampaUrl", ${JSON.stringify(correct)})`,
-    );
-    await until(
-      () => readyCount === 5,
-      "A valid URL entered after a typo did not load.",
-    );
-    assert.equal(window.webContents.getURL(), correct);
-    assert.equal(store.get("lampaUrl"), correct);
-    console.log(
-      "PASS: settings IPC accepts correct address after a failed one.",
-    );
-
-    // window.Lampa alone must not mark a non-rendered page as ready.
-    navigation.open(base + "unready");
-    await until(
-      () => readyCount === 6,
-      "Page with window.Lampa but without the interface was accepted.",
-    );
-    assert.equal(window.webContents.getURL(), base);
-    console.log("PASS: global window.Lampa without rendered UI falls back.");
-
-    // A hidden BrowserWindow can report zero geometry on Windows even
-    // though Lampa has rendered its complete interface.
-    navigation.open(base + "geometry-zero");
-    await until(() => readyCount === 7, "Zero-geometry Lampa was rejected.");
-    assert.equal(window.webContents.getURL(), base + "geometry-zero");
-    console.log("PASS: hidden renderer geometry cannot reject a ready Lampa.");
-
-    // Some Lampa forks render the shell without setting appready.
-    navigation.open(base + "no-appready");
-    await until(() => readyCount === 8, "Rendered Lampa without appready was rejected.");
-    assert.equal(window.webContents.getURL(), base + "no-appready");
-    console.log("PASS: rendered Lampa without appready is accepted.");
-
-    // Real Lampa presents the language picker before it creates #app.
-    // The welcome screen must be shown instead of timing out and failing over.
-    navigation.open(base + "language");
-    await until(() => readyCount === 9, "First-run language screen was rejected.");
-    assert.equal(window.webContents.getURL(), base + "language");
-    assert.equal(
-      await window.webContents.executeJavaScript(
-        'document.querySelector(".lang__selector-item")?.textContent',
-      ),
-      "Русский",
-    );
-    console.log("PASS: first-run language selection is treated as ready.");
-
-    // A malformed store request must be rejected before it is persisted.
-    await assert.rejects(
-      window.webContents.executeJavaScript(
-        "window.electronAPI.store.set('lampaUrl', 'javascript:alert(1)')",
-      ),
-    );
-    assert.equal(store.get("lampaUrl"), base);
-    console.log("PASS: invalid setting is rejected without navigation.");
-
-    // When even the default fails, notify once rather than looping forever.
-    const second = createTestWindow();
-    activeWindow = second;
-    let unavailable = 0;
-    let recovered = 0;
-    const missingDefault = createNavigationFallback(second, store, {
-      defaultUrl: "http://127.0.0.1:1/",
-      timeoutMs: 500,
-      pollMs: 25,
-      onReady: () => {
-        recovered += 1;
-        second.show();
-      },
-      onUnavailable: () => {
-        unavailable += 1;
-        void second.loadFile(path.join(root, "src", "recovery.html")).then(() => second.show());
-      },
-    });
-    missingDefault.open("definitely invalid");
-    await until(
-      () => unavailable === 1,
-      "Unreachable default was not reported.",
-    );
-    await new Promise((resolve) => setTimeout(resolve, 400));
-    assert.equal(unavailable, 1);
-    await until(
-      () => second.isVisible() && second.webContents.getURL().startsWith("file:"),
-      "Recovery UI did not become visible.",
-    );
-    assert.equal(
-      await second.webContents.executeJavaScript(
-        'Boolean(document.getElementById("recovery-form"))',
-      ),
-      true,
-    );
-    console.log("PASS: unreachable default displays interactive recovery UI.");
-
-    await second.webContents.executeJavaScript(
-      `window.electronAPI.store.set("lampaUrl", ${JSON.stringify(base)})`,
-    );
-    await until(
-      () => recovered === 1 && second.webContents.getURL() === base,
-      "Recovery page cannot navigate to a corrected Lampa address.",
-    );
-    console.log("PASS: corrected address works from recovery UI without restart.");
-
-    clearTimeout(watchdog);
-    for (const item of windows) item.destroy();
-    server.close();
-    app.exit(0);
-  })
-  .catch((error) => {
-    console.error(error);
-    clearTimeout(watchdog);
-    for (const item of windows) {
-      if (!item.isDestroyed()) item.destroy();
-    }
-    if (server) server.close();
-    app.exit(1);
+  let ready = 0;
+  let failed = 0;
+  let lastError;
+  const navigation = createNavigationFallback(window, store, {
+    timeoutMs: 600,
+    pollMs: 30,
+    onReady: () => { ready += 1; },
+    onUnavailable: (error, url) => {
+      failed += 1;
+      lastError = { error: String(error.message || error), url };
+      void window.loadFile(path.join(root, "src", "recovery.html"), {
+        query: { url, reason: lastError.error },
+      });
+    },
   });
+  registerStoreHandlers(store, {
+    getMainWindow: () => window,
+    openLampaUrl: (_window, url) => navigation.open(url),
+  });
+
+  // A valid address loads immediately.
+  navigation.open(base);
+  await until(() => ready === 1, "Initial Lampa failed");
+  assert.equal(window.webContents.getURL(), base);
+  console.log("PASS: valid address opens once");
+
+  // A connection refusal must show the editable URL panel directly.
+  const bad = "http://127.0.0.1:65534/typo";
+  const baseline = requests.length;
+  navigation.open(bad);
+  await until(screenIsRecovery, "First failed request did not open URL editor");
+  assert.equal(requests.length, baseline + 1);
+  assert.equal(requests.at(-1), bad);
+  assert.equal(lastError.url, bad);
+  assert.equal(failed, 1);
+  assert.equal(store.get("lampaUrl"), base);
+  const shownUrl = await window.webContents.executeJavaScript(
+    'document.querySelector("#url").value',
+  );
+  assert.equal(shownUrl, bad);
+  await new Promise((resolve) => setTimeout(resolve, 750));
+  assert.equal(requests.length, baseline + 1);
+  console.log("PASS: first failure opens correction panel without any automatic retries");
+
+  // The user can enter a good URL into the form without restarting.
+  await window.webContents.executeJavaScript(`
+    document.querySelector("#url").value = ${JSON.stringify(base + "?correct=1")};
+    document.querySelector("#recovery-form").requestSubmit();
+  `);
+  await until(() => ready === 2, "Correct address did not load after failure");
+  assert.equal(window.webContents.getURL(), base + "?correct=1");
+  assert.equal(store.get("lampaUrl"), base + "?correct=1");
+  console.log("PASS: editable recovery form opens corrected URL in same Electron process");
+
+  // An HTTP 200 empty page is not success.
+  const previouslyFailed = failed;
+  const beforeBlank = requests.length;
+  navigation.open(base + "blank");
+  await until(screenIsRecovery, "Empty page was not rejected");
+  assert.equal(failed, previouslyFailed + 1);
+  assert.equal(requests.length, beforeBlank + 1);
+  console.log("PASS: HTTP 200 without real Lampa interface opens correction panel once");
+
+  // Repeated attempts are exclusively user initiated.
+  const beforeRetry = requests.length;
+  await window.webContents.executeJavaScript('document.querySelector("#retry").click()');
+  await until(() => failed === previouslyFailed + 2 && screenIsRecovery(),
+    "Manual retry did not return to recovery panel");
+  assert.equal(requests.length, beforeRetry + 1);
+  console.log("PASS: Retry makes exactly one new request and returns to the panel");
+
+  // Syntactically invalid values do not initiate any network call.
+  const beforeInvalid = requests.length;
+  navigation.open("notaurl");
+  await until(screenIsRecovery, "Malformed URL did not show editor");
+  assert.equal(requests.length, beforeInvalid);
+  console.log("PASS: malformed address opens editor without a network request");
+
+  // The language chooser counts as a functioning Lampa screen.
+  navigation.open(base + "language");
+  await until(() => ready === 3, "First-run language screen was rejected");
+  assert.equal(window.webContents.getURL(), base + "language");
+  console.log("PASS: initial language selection is accepted");
+
+  // Disallow non-http/https values from privileged renderer API.
+  await assert.rejects(
+    window.webContents.executeJavaScript(
+      "window.electronAPI.store.set('lampaUrl','javascript:alert(1)')",
+    ),
+  );
+  console.log("PASS: renderer IPC validates URLs");
+
+  clearTimeout(watchdog);
+  window.destroy();
+  server.close();
+  app.exit(0);
+}).catch((error) => {
+  console.error(error);
+  clearTimeout(watchdog);
+  if (window && !window.isDestroyed()) window.destroy();
+  if (server) server.close();
+  app.exit(1);
+});

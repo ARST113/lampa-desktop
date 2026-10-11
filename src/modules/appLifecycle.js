@@ -1,8 +1,10 @@
 const { app } = require("electron");
+const { record } = require("./startupDiagnostics");
 
 const gotTheLock = app.requestSingleInstanceLock();
 
 if (!gotTheLock) {
+  record("second instance - forwarding focus to running Lampa");
   app.quit();
   process.exit(0);
 }
@@ -12,9 +14,13 @@ function setupAppLifecycle() {
     const { getMainWindow } = require("./windowManager");
     const mainWindow = getMainWindow();
 
-    if (mainWindow) {
+    if (mainWindow && !mainWindow.isDestroyed()) {
       if (mainWindow.isMinimized()) mainWindow.restore();
+      // A failed site could leave the first application hidden.
+      if (!mainWindow.isVisible()) mainWindow.show();
       mainWindow.focus();
+    } else if (app.isReady()) {
+      require("./windowManager").createWindow();
     }
   });
 }

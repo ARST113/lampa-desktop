@@ -77,7 +77,7 @@
         messageText.textContent = failure
           ? (state.error || "Не удалось подключиться к серверу.")
           : (state.phase === "rendering"
-            ? "Сервер ответил. Загружаем интерфейс Lampa…"
+            ? "Страница получена. Проверяем, что это Lampa…"
             : "Пробуем открыть сервер " + (state.url || "") + "…");
         hint.textContent = failure
           ? "Адрес не изменяется автоматически. Можно повторить попытку или открыть lampa.mx."

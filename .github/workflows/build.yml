@@ -10,7 +10,6 @@ on:
   push:
     branches:
       - main
-      - fix/staged-android-url-loading-ac319
     tags:
       - "v*-ac3.*"
 
@@ -18,7 +17,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: lampa-ac319-staged-navigation
+  group: lampa-windows-ac3-eac3-staged-navigation
   cancel-in-progress: true
 
 jobs:

@@ -89,7 +89,7 @@ test("fallback matches redirects but ignores obsolete failure events", () => {
   );
 });
 
-test("failed URL handling never displays a recovery HTML page", () => {
+test("failed URL goes straight to local correction screen without automatic fallback", () => {
   const root = path.join(__dirname, "..", "src");
   const manager = fs.readFileSync(
     path.join(root, "modules", "windowManager.js"),
@@ -99,13 +99,14 @@ test("failed URL handling never displays a recovery HTML page", () => {
     path.join(root, "modules", "navigationFallback.js"),
     "utf8",
   );
+  const editor = fs.readFileSync(path.join(root, "recovery.html"), "utf8");
   assert.match(manager, /createNavigationFallback/);
-  assert.match(manager, /onReady: showReadyWindow/);
-  assert.match(fallback, /store\.set\("lampaUrl", fallbackUrl\)/);
-  assert.doesNotMatch(
-    manager + fallback,
-    /createLoadFailureUrl|document\.write/,
-  );
+  assert.match(manager, /loadFile\(path\.join\(__dirname, "\.\.", "recovery\.html"\)/);
+  assert.match(editor, /id="recovery-form"/);
+  assert.match(editor, /id="default"/);
+  assert.match(editor, /id="retry"/);
+  assert.doesNotMatch(fallback, /store\.set|EMERGENCY_LAMPA_URL/);
+  assert.doesNotMatch(manager + fallback, /createLoadFailureUrl|document\.write/);
 });
 
 test("URL store no longer reloads BrowserWindow behind controller", () => {

@@ -95,6 +95,8 @@ async function snapshot(tab) {
         document.querySelector("body > .lang .lang__selector-item[data-code]")
       ),
       documentVisibility: document.visibilityState,
+      recovery: Boolean(document.querySelector("#recovery-form")),
+      attemptedUrl: document.querySelector("#url")?.value || null,
       documentStart: performance.timeOrigin,
       title: document.title,
       body: (document.body?.innerText || "").slice(0, 350)
@@ -200,16 +202,10 @@ async function runScenario(name, configuredUrl, check) {
 
 
 async function runSequentialScenario() {
-  const name = "same-process-failure-and-correction";
   const debugPort = await availablePort();
   fs.writeFileSync(
     configPath,
-    JSON.stringify({
-      lampaUrl: DEFAULT_URL,
-      webSecurity: true,
-      autoUpdate: false,
-      tsAutoStart: false,
-    }),
+    JSON.stringify({ lampaUrl: DEFAULT_URL, webSecurity: true, autoUpdate: false, tsAutoStart: false }),
   );
   const env = { ...process.env };
   delete env.ELECTRON_RUN_AS_NODE;
@@ -217,14 +213,18 @@ async function runSequentialScenario() {
   let child;
   let latest = null;
   let lastTab = null;
-  let stage = "startup";
   let logs = "";
-  const ready = (page) =>
-    page && page.hasLampa &&
-    ((page.head && page.wrap && page.content) || page.languageChoice) &&
-    page.documentVisibility === "visible";
-  async function waitFor(url, afterStart = 0) {
-    const deadline = Date.now() + 50000;
+  let stage = "starting";
+
+  function valid(page, url) {
+    return page?.hasLampa &&
+      ((page.head && page.wrap && page.content) || page.languageChoice) &&
+      page.documentVisibility === "visible" &&
+      new URL(page.url).hostname === new URL(url).hostname;
+  }
+  async function waitFor(stageName, check, timeoutMs = 25000) {
+    stage = stageName;
+    const deadline = Date.now() + timeoutMs;
     while (Date.now() < deadline) {
       if (child.exitCode !== null) throw new Error("Process exited: " + child.exitCode);
       try {
@@ -232,24 +232,19 @@ async function runSequentialScenario() {
         if (tab) {
           lastTab = tab;
           latest = await snapshot(tab);
-          const configured = JSON.parse(fs.readFileSync(configPath, "utf8")).lampaUrl;
-          if (
-            ready(latest) &&
-            new URL(latest.url).hostname === new URL(url).hostname &&
-            latest.documentStart !== afterStart &&
-            new URL(configured).hostname === new URL(url).hostname
-          ) {
+          const saved = JSON.parse(fs.readFileSync(configPath, "utf8")).lampaUrl;
+          if (check(latest, saved)) {
             console.log("PASS: " + mode + " " + stage + " " + latest.url);
-            report.push({ mode, name: stage, status: "passed", state: latest, configured });
-            return latest.documentStart;
+            report.push({ mode, name: stage, status: "passed", state: latest, configured: saved });
+            return latest;
           }
         }
       } catch {
-        // A failing page and a renderer replacement are expected mid-navigation.
+        // The debugger temporarily disconnects when navigation replaces a document.
       }
       await delay(200);
     }
-    throw new Error("Failed to navigate after " + stage + "; state=" + JSON.stringify(latest));
+    throw new Error("Timeout after " + stage + "; last state=" + JSON.stringify(latest));
   }
   async function setThroughSettings(url) {
     const tab = await tabFor(debugPort);
@@ -260,40 +255,69 @@ async function runSequentialScenario() {
     });
     if (result.exceptionDetails) throw new Error(JSON.stringify(result.exceptionDetails));
   }
+  async function clickInEditor(expression) {
+    const tab = await tabFor(debugPort);
+    const result = await cdp(tab.webSocketDebuggerUrl, "Runtime.evaluate", {
+      expression,
+      returnByValue: true,
+    });
+    if (result.exceptionDetails) throw new Error(JSON.stringify(result.exceptionDetails));
+  }
   function editConfig(url) {
     const current = JSON.parse(fs.readFileSync(configPath, "utf8"));
     current.lampaUrl = url;
     fs.writeFileSync(configPath, JSON.stringify(current));
   }
+  async function waitForError(name, bad) {
+    const page = await waitFor(name, (state, saved) =>
+      state?.recovery && state.documentVisibility === "visible" &&
+      state.attemptedUrl === bad && saved === bad);
+    // Check that no hidden second attempt or automatic config rewrite follows.
+    await delay(650);
+    const tab = await tabFor(debugPort);
+    const still = await snapshot(tab);
+    assert.equal(still.recovery, true, "Unexpected automatic retry after first failure");
+    assert.equal(still.attemptedUrl, bad, "Unexpected implicit URL change");
+    assert.equal(JSON.parse(fs.readFileSync(configPath, "utf8")).lampaUrl, bad);
+    assert.equal(still.documentStart, page.documentStart);
+  }
+
   try {
     child = spawn(
       executable,
       ["--remote-debugging-port=" + debugPort, "--remote-allow-origins=*"],
       { env, windowsHide: true, stdio: ["ignore", "pipe", "pipe"] },
     );
-    child.stdout.on("data", (data) => { logs = (logs + String(data)).slice(-10000); });
-    child.stderr.on("data", (data) => { logs = (logs + String(data)).slice(-10000); });
+    child.stdout.on("data", (part) => { logs = (logs + String(part)).slice(-12000); });
+    child.stderr.on("data", (part) => { logs = (logs + String(part)).slice(-12000); });
 
-    stage = "initial-live";
-    let start = await waitFor(DEFAULT_URL);
-    stage = "first-invalid-settings";
-    await setThroughSettings("http://127.0.0.1:1/broken-one");
-    start = await waitFor(DEFAULT_URL, start);
-    stage = "correct-settings-after-failure";
-    await setThroughSettings(BACKUP_URL);
-    start = await waitFor(BACKUP_URL, start);
-    stage = "second-invalid-settings";
-    await setThroughSettings("http://127.0.0.1:1/broken-two");
-    start = await waitFor(DEFAULT_URL, start);
-    stage = "manual-config-correction-while-running";
-    editConfig(BACKUP_URL);
-    start = await waitFor(BACKUP_URL, start);
-    stage = "third-invalid-settings";
-    await setThroughSettings("http://127.0.0.1:1/broken-three");
-    start = await waitFor(DEFAULT_URL, start);
-    stage = "correct-settings-after-three-failures";
-    await setThroughSettings(BACKUP_URL);
-    await waitFor(BACKUP_URL, start);
+    await waitFor("initial-live", (p) => valid(p, DEFAULT_URL));
+
+    const first = "http://127.0.0.1:1/bad-one";
+    await setThroughSettings(first);
+    await waitForError("first-invalid-shows-editor", first);
+
+    await clickInEditor(
+      "document.querySelector('#url').value=" + JSON.stringify(BACKUP_URL) +
+      ";document.querySelector('#recovery-form').requestSubmit()"
+    );
+    await waitFor("corrected-manually-after-first-failure",
+      (p, saved) => valid(p, BACKUP_URL) && saved === BACKUP_URL);
+
+    const second = "http://127.0.0.1:1/bad-two";
+    await setThroughSettings(second);
+    await waitForError("second-invalid-shows-editor", second);
+
+    editConfig(DEFAULT_URL);
+    await waitFor("external-config-edit-restores-lampa",
+      (p, saved) => valid(p, DEFAULT_URL) && saved === DEFAULT_URL);
+
+    const third = "http://127.0.0.1:1/bad-three";
+    await setThroughSettings(third);
+    await waitForError("third-invalid-shows-editor", third);
+    await clickInEditor("document.getElementById('default').click()");
+    await waitFor("default-button-restores-lampa",
+      (p, saved) => valid(p, DEFAULT_URL) && saved === DEFAULT_URL);
   } catch (error) {
     if (lastTab) await capture(lastTab, stage);
     console.error("FAIL: " + mode + " " + stage + " " + error.message + "\n" + logs);
@@ -318,8 +342,13 @@ async function main() {
     // Real default URL loaded from config.json.
     await runScenario("default", DEFAULT_URL, loaded);
 
-    // A wrong saved URL must recover automatically on the same process.
-    await runScenario("bad-url-recovery", "http://127.0.0.1:1/not-found", loaded);
+    // Bad saved URLs open a local editor on the FIRST error. They must
+    // not replace the user's preference or attempt a second host.
+    const invalidAtStartup = "http://127.0.0.1:1/not-found";
+    await runScenario("bad-url-editor", invalidAtStartup, (page) =>
+      page.recovery && page.attemptedUrl === invalidAtStartup &&
+      page.documentVisibility === "visible"
+    );
 
     // Editing config.json to a valid HTTPS Lampa host must work too.
     await runScenario("manual-https-config", BACKUP_URL, (page) =>

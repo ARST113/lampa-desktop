@@ -3,82 +3,97 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Lampa — восстановление подключения</title>
+  <title>Lampa — адрес недоступен</title>
   <style>
     * { box-sizing: border-box; }
-    body { margin: 0; background: #14161b; color: #e9e9ed; min-height: 100vh;
-      display: grid; place-items: center; font: 16px/1.5 system-ui, "Segoe UI", sans-serif; padding: 28px; }
-    main { width: min(100%, 620px); background: #202329; padding: 34px;
-      border-radius: 18px; border: 1px solid #353940; }
-    h1 { font-size: 23px; font-weight: 650; margin: 0 0 10px; }
-    p { color: #b8bbc4; margin: 8px 0 22px; }
-    label { display: block; margin-bottom: 8px; }
-    input { width: 100%; border: 1px solid #555b66; border-radius: 8px;
-      background: #121418; color: white; padding: 13px; font: inherit; outline-offset: 3px; }
-    .actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 18px; }
-    button { cursor: pointer; padding: 11px 18px; font: inherit; color: #fff;
-      border: 1px solid #4b515c; background: #373d47; border-radius: 8px; }
-    button[type="submit"] { background: #245bc0; border-color: #3579ec; }
-    button:hover, button:focus-visible { filter: brightness(1.15); }
-    #message { color: #ffc38c; min-height: 25px; font-size: 14px; margin-top: 15px; }
-    small { display: block; color: #a7abb5; margin-top: 24px; }
+    body {
+      background: #111315; color: #f0f2f3; margin: 0; padding: 24px;
+      min-height: 100vh; display: grid; place-items: center;
+      font: 16px/1.45 "Segoe UI", system-ui, sans-serif;
+    }
+    main { width: min(100%, 620px); background: #1d2023;
+      border: 1px solid #34383b; padding: 34px; border-radius: 14px; }
+    h1 { color: #00c8bb; font-size: clamp(22px, 3vw, 28px);
+      margin: 0 0 14px; font-weight: 650; }
+    p { color: #c4c8cb; margin: 0 0 24px; }
+    label { display: block; margin: 0 0 9px; font-weight: 500; }
+    input { width: 100%; padding: 15px 16px; background: #101214; color: white;
+      border: 1px solid #697174; border-radius: 9px; outline-offset: 3px;
+      font: inherit; }
+    input:focus { border-color: #00c8bb; }
+    .error { margin: 10px 0 0; min-height: 22px; color: #f19aab;
+      overflow-wrap: anywhere; font-size: 14px; }
+    .actions { display: flex; gap: 12px; margin: 23px 0 0; flex-wrap: wrap; }
+    button { padding: 12px 17px; border: 1px solid #50575b; border-radius: 8px;
+      font: inherit; background: #34393d; color: white; cursor: pointer; }
+    button.primary { background: #00877e; border-color: #00aea1; }
+    button:hover, button:focus-visible { filter: brightness(1.14); }
+    button:disabled { cursor: wait; opacity: .6; }
+    small { display: block; margin: 22px 0 0; color: #939da0; }
+    @media (max-width: 520px) { main { padding: 22px; } button { width: 100%; } }
   </style>
 </head>
 <body>
   <main>
     <h1>Не удалось открыть Lampa</h1>
-    <p>Основной адрес и резервное зеркало не ответили либо интерфейс не запустился. Приложение продолжает работать: введите любой корректный адрес Lampa и повторите загрузку.</p>
+    <p>Проверьте адрес и подключение к интернету. Вы можете изменить адрес прямо здесь, не закрывая приложение.</p>
     <form id="recovery-form">
-      <label for="url">Адрес сайта</label>
-      <input id="url" type="url" autocomplete="url" spellcheck="false"
-        required value="http://lampa.mx/" placeholder="https://example.org/" />
+      <label for="url">Адрес Lampa</label>
+      <input id="url" type="text" inputmode="url" autocapitalize="off"
+        autocomplete="url" spellcheck="false" required placeholder="https://example.org/" />
+      <div id="message" class="error" role="status" aria-live="polite"></div>
       <div class="actions">
-        <button type="submit" id="open">Открыть адрес</button>
-        <button type="button" id="default">lampa.mx</button>
-        <button type="button" id="mirror">Резервный адрес</button>
+        <button id="open" type="submit" class="primary">Открыть адрес</button>
+        <button id="default" type="button">Открыть lampa.mx</button>
+        <button id="retry" type="button">Повторить</button>
       </div>
     </form>
-    <div id="message" role="status" aria-live="polite"></div>
-    <small>Ваши настройки и данные Portable не удаляются. Также можно изменить lampaUrl в LampaData/config.json — приложение подхватит новый адрес.</small>
+    <small>Одна попытка загрузки для каждого адреса. Если сайт снова недоступен, этот экран появится сразу после ошибки. Настройки и данные сохраняются.</small>
   </main>
   <script>
-    (function () {
+    (() => {
       "use strict";
-      var input = document.getElementById("url");
-      var message = document.getElementById("message");
-      var submit = document.getElementById("open");
-      async function open(value) {
-        message.textContent = "";
-        submit.disabled = true;
+      const query = new URLSearchParams(location.search);
+      const input = document.getElementById("url");
+      const status = document.getElementById("message");
+      const openButton = document.getElementById("open");
+      const initial = query.get("url") || "http://lampa.mx/";
+      input.value = initial;
+      status.textContent = query.get("reason") || "Не удалось подключиться к адресу.";
+
+      async function attempt(url) {
+        let parsed;
         try {
-          var parsed = new URL(value);
-          if (!["http:", "https:"].includes(parsed.protocol)) {
-            throw new Error("Нужен полный адрес с http:// или https://.");
+          parsed = new URL(url.trim());
+          if (!["http:", "https:"].includes(parsed.protocol) || !parsed.hostname) {
+            throw new TypeError("Введите полный адрес с http:// или https://");
           }
-          if (!window.electronAPI || !window.electronAPI.store) {
-            throw new Error("Нет соединения с основным процессом приложения.");
-          }
+        } catch {
+          status.textContent = "Введите корректный адрес с http:// или https://";
+          input.focus();
+          return;
+        }
+        openButton.disabled = true;
+        status.textContent = "Подключение к " + parsed.href;
+        try {
           await window.electronAPI.store.set("lampaUrl", parsed.href);
-          message.textContent = "Загружаем " + parsed.href;
         } catch (error) {
-          message.textContent = error.message || String(error);
-        } finally {
-          submit.disabled = false;
+          status.textContent = "Не удалось применить адрес: " + (error.message || error);
+          openButton.disabled = false;
         }
       }
-      document.getElementById("recovery-form").addEventListener("submit", function (event) {
+
+      document.getElementById("recovery-form").addEventListener("submit", (event) => {
         event.preventDefault();
-        open(input.value);
+        attempt(input.value);
       });
-      document.getElementById("default").addEventListener("click", function () {
+      document.getElementById("default").addEventListener("click", () => {
         input.value = "http://lampa.mx/";
-        open(input.value);
+        attempt(input.value);
       });
-      document.getElementById("mirror").addEventListener("click", function () {
-        input.value = "https://cf.lampa.mx/";
-        open(input.value);
-      });
+      document.getElementById("retry").addEventListener("click", () => attempt(input.value));
       input.focus();
+      input.select();
     })();
   </script>
 </body>

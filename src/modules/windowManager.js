@@ -151,12 +151,18 @@ function createWindow() {
 
   setupNavigationHandlers(mainWindow);
   const navigation = setupErrorHandler(mainWindow, {
-    onReady: showReadyWindow,
+    onReady: () => {
+      if (!mainWindow.isDestroyed()) mainWindow.setProgressBar(-1);
+      showReadyWindow();
+    },
   });
   navigationControllers.set(mainWindow, navigation);
   setupWindowOpenHandler(mainWindow);
   setupPluginHandler(mainWindow);
 
+  // Show an actual application window immediately, rather than hiding the
+  // entire program until multiple network timeouts have elapsed.
+  showReadyWindow();
   navigation.open(store.get("lampaUrl", DEFAULT_LAMPA_URL));
   watchConfiguredUrl(mainWindow, navigation);
 
@@ -300,17 +306,24 @@ function setupErrorHandler(window, { onReady = () => window.show() } = {}) {
 
   navigation = createNavigationFallback(window, store, {
     onReady,
-    onUnavailable(error) {
-      console.error("Стандартный сервер Lampa тоже недоступен:", error);
+    onUnavailable(error, failedUrl) {
+      console.warn("Адрес Lampa не открылся:", failedUrl, error);
       if (window.isDestroyed()) return;
-
-      // Do not leave a hidden or unusable window after two failed hosts.
-      // The local recovery screen accepts any valid address, even while
-      // offline, and is not dependent on the remote Lampa renderer.
+      // There is no second network attempt and no implicit config rewrite.
+      // The offline editor remains interactive even if the entire network is
+      // down, and lampa.mx is a manual single-click choice.
       void window
-        .loadFile(path.join(__dirname, "..", "recovery.html"))
+        .loadFile(path.join(__dirname, "..", "recovery.html"), {
+          query: {
+            url: failedUrl || "",
+            reason: String(error?.message || error || "Неизвестная ошибка"),
+          },
+        })
         .then(() => {
-          if (!window.isDestroyed()) window.show();
+          if (!window.isDestroyed()) {
+            window.setProgressBar(-1);
+            window.show();
+          }
         })
         .catch((recoveryError) => {
           console.error("Не удалось открыть экран восстановления:", recoveryError);

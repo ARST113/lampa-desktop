@@ -185,6 +185,17 @@ jobs:
           prerelease: true
           fail_on_unmatched_files: true
           body: |
+            New in ac3.17: try a configured URL only ONCE. On first
+            network or interface failure, immediately show a local,
+            Android-style URL correction panel with the failed URL, a
+            single Retry action and an explicit Open lampa.mx button.
+            Remove automatic host switching and all retry cascades.
+            Display the Windows window immediately with a loading title,
+            and cap unavailable site startup at 12 seconds. Real Windows
+            tests now require the correction panel after one failure
+            and manual recovery within the same EXE process for
+            installed and portable distributions.
+
             New in ac3.16: add an actual unpacked Windows Portable ZIP that
             launches directly without NSIS extraction. Portable EXE and ZIP
             must each create LampaData from scratch and open real Lampa in

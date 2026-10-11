@@ -1,47 +1,45 @@
-const { DEFAULT_LAMPA_URL, normalizeHttpUrl } = require("./pageNavigation");
+const { normalizeHttpUrl } = require("./pageNavigation");
 
-const STARTUP_TIMEOUT_MS = 30000;
-const READINESS_POLL_MS = 250;
-const EMERGENCY_LAMPA_URL = "https://cf.lampa.mx/";
+// A single URL is attempted once. Any failure immediately returns control
+// to the local URL editor; there is no automatic fallback or mirror cascade.
+const STARTUP_TIMEOUT_MS = 12000;
+const READINESS_POLL_MS = 200;
 
 const LAMPA_RENDERED_SCRIPT = `(() => {
   const root = document.getElementById("app");
   const shell = root?.querySelector(".wrap");
   const head = root?.querySelector(".head");
   const content = root?.querySelector(".wrap__content");
-  // Hidden BrowserWindow may report zero layout width on Windows.
-  // The app is ready when Lampa creates its real interface. Some forks
-  // render the shell before (or without) setting window.appready.
-  // Fresh profiles display Lampa's language selector before startApp()
-  // renders #app. This is a working welcome screen, not a failed load.
   const languageChoice = document.querySelector(
     "body > .lang .lang__selector-item[data-code]",
   );
-  return Boolean(
-    window.Lampa && ((head && shell && content) || languageChoice)
-  );
+  return Boolean(window.Lampa && ((head && shell && content) || languageChoice));
 })()`;
+
+function isSameNavigation(actual, expected) {
+  try {
+    const a = new URL(actual);
+    const b = new URL(expected);
+    if (a.hostname === b.hostname && a.port === b.port) return true;
+    const official = new Set(["lampa.mx", "cf.lampa.mx"]);
+    return !a.port && !b.port && official.has(a.hostname) && official.has(b.hostname);
+  } catch {
+    return false;
+  }
+}
 
 function createNavigationFallback(
   window,
-  store,
+  _store,
   {
-    defaultUrl = DEFAULT_LAMPA_URL,
     timeoutMs = STARTUP_TIMEOUT_MS,
     pollMs = READINESS_POLL_MS,
     onReady = () => {},
     onUnavailable = () => {},
   } = {},
 ) {
-  const fallbackUrl = normalizeHttpUrl(defaultUrl);
-  // Alternative official HTTPS host is used only for the actual default,
-  // never for tests or independently configured fallbacks.
-  const backupUrl =
-    fallbackUrl === normalizeHttpUrl(DEFAULT_LAMPA_URL)
-      ? EMERGENCY_LAMPA_URL
-      : null;
   let current = null;
-  let attemptNumber = 0;
+  let sequence = 0;
   let lastTarget = null;
   let timeout = null;
   let poll = null;
@@ -54,60 +52,24 @@ function createNavigationFallback(
   }
 
   function isCurrent(id) {
-    return (
-      current !== null &&
-      current.id === id &&
+    return current?.id === id &&
       !window.isDestroyed() &&
-      !window.webContents.isDestroyed()
-    );
+      !window.webContents.isDestroyed();
   }
 
-  function handleFailure(id, reason) {
+  function fail(id, error) {
     if (!isCurrent(id)) return;
-
-    const failed = current.url;
-    const configuredAtStart = current.configuredAtStart;
+    const failedUrl = current.url;
     clearTimers();
     current = null;
-    console.error("Не удалось запустить Lampa:", failed, reason);
-
-    if (failed !== fallbackUrl && failed !== backupUrl) {
-      // The user may correct config.json while the previous URL is failing.
-      // Do not erase that correction with the automatic fallback.
-      const configured = store.get("lampaUrl", fallbackUrl);
-      if (configured !== configuredAtStart && configured !== failed) {
-        try {
-          const updated = normalizeHttpUrl(configured);
-          if (updated !== failed) {
-            open(updated);
-            return;
-          }
-        } catch {
-          // Broken config values are handled by the standard fallback.
-        }
-      }
-      store.set("lampaUrl", fallbackUrl);
-      open(fallbackUrl);
-      return;
-    }
-
-    if (failed === fallbackUrl && backupUrl) {
-      console.warn("Основной адрес Lampa недоступен, пробуем резервный:", backupUrl);
-      store.set("lampaUrl", backupUrl);
-      open(backupUrl);
-      return;
-    }
-
-    // No infinite retry loop when all available entry points fail.
-    onUnavailable(reason);
+    console.warn("Lampa URL недоступен:", failedUrl, error);
+    // Crucially, do not rewrite lampaUrl and do not load a different host.
+    // Let the user edit the exact attempted URL or choose lampa.mx explicitly.
+    onUnavailable(error, failedUrl);
   }
 
   async function checkReady(id) {
     if (!isCurrent(id)) return;
-
-    // A global Lampa object exists long before the interface is drawn.
-    // Check the actual interface, without tying readiness to a hidden
-    // BrowserWindow's geometry or fork-dependent appready timing.
     if (!isSameNavigation(window.webContents.getURL(), current.url)) return;
 
     const ready = await window.webContents
@@ -116,16 +78,13 @@ function createNavigationFallback(
     if (!isCurrent(id)) return;
 
     if (ready) {
-      console.info("Lampa interface ready:", window.webContents.getURL());
       clearTimers();
       current = null;
+      console.info("Lampa URL открыт:", window.webContents.getURL());
       onReady();
       return;
     }
-
-    poll = setTimeout(() => {
-      void checkReady(id);
-    }, pollMs);
+    poll = setTimeout(() => void checkReady(id), pollMs);
   }
 
   function open(value) {
@@ -133,58 +92,46 @@ function createNavigationFallback(
     try {
       target = normalizeHttpUrl(value);
     } catch (error) {
-      console.warn("Неверный адрес Lampa:", value, error.message);
-      store.set("lampaUrl", fallbackUrl);
-      target = fallbackUrl;
+      clearTimers();
+      current = null;
+      lastTarget = String(value ?? "");
+      onUnavailable(new Error("Укажите полный HTTP или HTTPS адрес."), lastTarget);
+      return;
     }
 
-    if (current && current.url === target) return;
+    // Settings IPC and an external config.json watcher may report the same
+    // update concurrently. A duplicate must not restart an in-flight load.
+    if (current?.url === target) return;
+
+    // Each explicit attempt replaces the previous one; callbacks from old
+    // loadURL promises, old timeouts and cancelled navigations are ignored.
     clearTimers();
     lastTarget = target;
-    console.info("Lampa navigation started:", target);
-    // Never expose an Electron error page or an empty renderer during
-    // recovery. Background throttling must be disabled on the window
-    // so that Lampa's JavaScript keeps running while it is hidden.
-    if (!window.isDestroyed() && window.isVisible()) window.hide();
-    const id = ++attemptNumber;
-    current = {
-      id,
-      url: target,
-      configuredAtStart: store.get("lampaUrl", fallbackUrl),
-    };
+    const id = ++sequence;
+    current = { id, url: target };
+    window.setTitle?.("Lampa — подключение: " + target);
+    window.setProgressBar?.(0.2);
     timeout = setTimeout(() => {
-      handleFailure(id, new Error("Время загрузки Lampa истекло."));
+      fail(id, new Error("Сайт не ответил или не запустил интерфейс за 12 секунд."));
     }, timeoutMs);
 
     try {
-      Promise.resolve(window.loadURL(target)).catch((error) => {
-        handleFailure(id, error);
-      });
+      Promise.resolve(window.loadURL(target)).catch((error) => fail(id, error));
     } catch (error) {
-      handleFailure(id, error);
+      fail(id, error);
     }
   }
 
   window.webContents.on("did-finish-load", () => {
-    if (current !== null) void checkReady(current.id);
+    if (current) void checkReady(current.id);
   });
 
   window.webContents.on(
     "did-fail-load",
-    (_event, errorCode, description, url, isMainFrame) => {
-      // -3 / ERR_ABORTED is normal for redirects and interrupted requests.
-      // Never interpret an iframe's failure as a failed Lampa document.
-      if (isMainFrame === false || errorCode === -3 || !current) return;
-
-      // Ignore a delayed failure from a previous navigation.
-      // Old failures from the primary host must not abort an already started
-      // HTTPS recovery attempt. Cross-host redirects are handled separately
-      // by loadURL's own promise rejection.
-      if (url && !isExactHost(url, current.url)) return;
-      handleFailure(
-        current.id,
-        new Error(`HTTP navigation error ${errorCode}: ${description}`),
-      );
+    (_event, code, description, url, isMainFrame) => {
+      if (isMainFrame === false || code === -3 || !current) return;
+      if (url && !isSameNavigation(url, current.url)) return;
+      fail(current.id, new Error("Ошибка соединения " + code + ": " + description));
     },
   );
 
@@ -193,41 +140,16 @@ function createNavigationFallback(
     current = null;
   });
 
-  return { open, getTarget: () => current?.url || lastTarget };
-}
-
-function isExactHost(actual, expected) {
-  try {
-    const a = new URL(actual);
-    const b = new URL(expected);
-    return a.hostname === b.hostname && a.port === b.port;
-  } catch {
-    return false;
-  }
-}
-
-function isSameNavigation(actual, expected) {
-  try {
-    const a = new URL(actual);
-    const b = new URL(expected);
-    if (a.hostname === b.hostname && a.port === b.port) return true;
-    // The official HTTP entry point can redirect to the HTTPS mirror.
-    const official = new Set(["lampa.mx", "cf.lampa.mx"]);
-    return (
-      !a.port &&
-      !b.port &&
-      official.has(a.hostname) &&
-      official.has(b.hostname)
-    );
-  } catch {
-    return false;
-  }
+  return {
+    open,
+    getTarget: () => current?.url || lastTarget,
+    getState: () => (current ? "loading" : "idle"),
+  };
 }
 
 module.exports = {
   createNavigationFallback,
   isSameNavigation,
   STARTUP_TIMEOUT_MS,
-  EMERGENCY_LAMPA_URL,
   LAMPA_RENDERED_SCRIPT,
 };

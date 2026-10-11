@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="300" height="56" viewBox="0 0 300 56" role="img" aria-label="Linux: Linux ARM64">
+<title>Linux — Linux ARM64</title>
+<rect width="300" height="56" rx="9" fill="#20252C"/>
+<path d="M9 0H56V56H9Q0 56 0 47V9Q0 0 9 0Z" fill="#D49716"/>
+<ellipse cx="31" cy="24" rx="12" ry="18" fill="#fff"/><ellipse cx="31" cy="28" rx="8" ry="11" fill="#303030"/><ellipse cx="31" cy="32" rx="5.4" ry="8" fill="#fff"/><circle cx="27.5" cy="17" r="1.9" fill="#333"/><circle cx="34.5" cy="17" r="1.9" fill="#333"/><path d="M28 22 31 25 34 22 31 21z" fill="#F4AD25"/><ellipse cx="23" cy="43" rx="6" ry="3" fill="#F4AD25"/><ellipse cx="39" cy="43" rx="6" ry="3" fill="#F4AD25"/>
+<text x="71" y="25" fill="#fff" font-family="Arial, sans-serif" font-size="17" font-weight="700">Linux ARM64</text>
+<text x="71" y="43" fill="#AAB6C6" font-family="Arial, sans-serif" font-size="13">архивный выпуск</text>
+<path d="M272 23v-6h9v6m-12 4 7 7 7-7m-7 7V21" fill="none" stroke="#D5DDE7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

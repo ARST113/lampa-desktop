@@ -1,9 +1,16 @@
 const { app } = require("electron");
+const { record, fatal } = require("./modules/startupDiagnostics");
 const path = require("node:path");
 const { configurePortableProfile } = require("./modules/portablePaths");
 
 // Resolve portable profile before loading modules which initialize electron-store.
-configurePortableProfile(app);
+try {
+  const profile = configurePortableProfile(app);
+  record("profile", profile ? "portable: " + profile : "installed: " + app.getPath("userData"));
+} catch (error) {
+  fatal("Не удалось создать профиль приложения. Проверьте права на папку Portable и свободную память.", error);
+  process.exit(1);
+}
 
 const { setupAppLifecycle, gotTheLock } = require("./modules/appLifecycle");
 const { createWindow } = require("./modules/windowManager");
@@ -33,7 +40,15 @@ app.whenReady().then(async () => {
 
   PlayerOptionsInterceptor.initialize();
 
-  createWindow();
+  try {
+    record("creating BrowserWindow");
+    createWindow();
+    record("BrowserWindow created");
+  } catch (error) {
+    fatal("Не удалось создать окно Lampa.", error);
+    app.exit(1);
+    return;
+  }
 
   setTimeout(async () => {
     try {
@@ -51,6 +66,7 @@ app.whenReady().then(async () => {
   });
 
   setupAutoUpdater();
+  record("startup setup complete");
 });
 
 app.on("window-all-closed", () => {
@@ -59,11 +75,20 @@ app.on("window-all-closed", () => {
   }
 });
 
+process.on("uncaughtException", (error) => {
+  fatal("Необработанная ошибка основного процесса.", error);
+  app.exit(1);
+});
+process.on("unhandledRejection", (error) => {
+  record("unhandledRejection", error);
+});
+
 let isQuitting = false;
 
 app.on("will-quit", async (event) => {
-  if (isQuitting) {
-    event.preventDefault();
+  if (isQuitting) return;
+  if (!torrServerManager.process) {
+    record("normal application exit (no TorrServer child)");
     return;
   }
 
@@ -81,7 +106,7 @@ app.on("will-quit", async (event) => {
       new Promise((_, reject) =>
         setTimeout(
           () => reject(new Error("Timeout stopping TorrServer")),
-          5000,
+          2000,
         ),
       ),
     ]);
@@ -105,7 +130,7 @@ app.on("will-quit", async (event) => {
   }
 
   console.log("👋 Завершение приложения");
-  app.exit();
+  app.exit(0);
 });
 
 // Дополнительный обработчик на случай, если will-quit не сработает

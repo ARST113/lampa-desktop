@@ -10,6 +10,7 @@ on:
   push:
     branches:
       - main
+      - fix/strict-lampa-http-response-ac320
     tags:
       - "v*-ac3.*"
 
@@ -17,7 +18,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: lampa-windows-ac3-eac3-staged-navigation
+  group: lampa-strict-lampa-response-test
   cancel-in-progress: true
 
 jobs:

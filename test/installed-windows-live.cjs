@@ -74,13 +74,15 @@ async function cdp(wsUrl, method, params = {}) {
     });
   });
 }
-async function tabFor(port) {
+async function tabFor(port, role = "lampa") {
   const response = await fetch("http://127.0.0.1:" + port + "/json/list", {
     signal: AbortSignal.timeout(1200),
   });
   if (!response.ok) throw new Error("CDP returned HTTP " + response.status);
-  const pages = await response.json();
-  return pages.find((page) => page.type === "page" && page.webSocketDebuggerUrl);
+  const targets = (await response.json()).filter(p =>
+    p.type === "page" && p.webSocketDebuggerUrl);
+  if (role === "editor") return targets.find(p => p.url.includes("/recovery.html"));
+  return targets.find(p => !p.url.startsWith("file:"));
 }
 async function snapshot(tab) {
   const result = await cdp(tab.webSocketDebuggerUrl, "Runtime.evaluate", {
@@ -96,6 +98,8 @@ async function snapshot(tab) {
       ),
       documentVisibility: document.visibilityState,
       recovery: Boolean(document.querySelector("#recovery-form")),
+      loadingState: document.querySelector("#message")?.className || "",
+      statusMessage: document.querySelector("#message-text")?.textContent || "",
       attemptedUrl: document.querySelector("#url")?.value || null,
       documentStart: performance.timeOrigin,
       title: document.title,
@@ -170,7 +174,7 @@ async function runScenario(name, configuredUrl, check) {
         throw new Error("Process exited with code " + child.exitCode);
       }
       try {
-        const tab = await tabFor(debugPort);
+        const tab = await tabFor(debugPort, name.includes("editor") ? "editor" : "lampa");
         if (tab) {
           latestTab = tab;
           latest = await snapshot(tab);
@@ -222,13 +226,13 @@ async function runSequentialScenario() {
       page.documentVisibility === "visible" &&
       new URL(page.url).hostname === new URL(url).hostname;
   }
-  async function waitFor(stageName, check, timeoutMs = 25000) {
+  async function waitFor(stageName, check, timeoutMs = 25000, role = "lampa") {
     stage = stageName;
     const deadline = Date.now() + timeoutMs;
     while (Date.now() < deadline) {
       if (child.exitCode !== null) throw new Error("Process exited: " + child.exitCode);
       try {
-        const tab = await tabFor(debugPort);
+        const tab = await tabFor(debugPort, role);
         if (tab) {
           lastTab = tab;
           latest = await snapshot(tab);
@@ -256,7 +260,7 @@ async function runSequentialScenario() {
     if (result.exceptionDetails) throw new Error(JSON.stringify(result.exceptionDetails));
   }
   async function clickInEditor(expression) {
-    const tab = await tabFor(debugPort);
+    const tab = await tabFor(debugPort, "editor");
     const result = await cdp(tab.webSocketDebuggerUrl, "Runtime.evaluate", {
       expression,
       returnByValue: true,
@@ -271,15 +275,18 @@ async function runSequentialScenario() {
   async function waitForError(name, bad) {
     const page = await waitFor(name, (state, saved) =>
       state?.recovery && state.documentVisibility === "visible" &&
-      state.attemptedUrl === bad && saved === bad);
+      state.attemptedUrl === bad &&
+      state.loadingState.includes("error") && saved === bad,
+      25000, "editor");
     // Check that no hidden second attempt or automatic config rewrite follows.
     await delay(650);
-    const tab = await tabFor(debugPort);
+    const tab = await tabFor(debugPort, "editor");
     const still = await snapshot(tab);
     assert.equal(still.recovery, true, "Unexpected automatic retry after first failure");
     assert.equal(still.attemptedUrl, bad, "Unexpected implicit URL change");
     assert.equal(JSON.parse(fs.readFileSync(configPath, "utf8")).lampaUrl, bad);
     assert.equal(still.documentStart, page.documentStart);
+    assert.equal(still.loadingState.includes("error"), true);
   }
 
   try {
@@ -358,6 +365,21 @@ async function main() {
     // Keep the actual executable alive while repeatedly switching from
     // failed to valid addresses, including an on-disk config edit.
     await runSequentialScenario();
+
+    // Additional live diagnosis for the user's personal Lampa entry point.
+    // Its availability can depend on server policy or runner geography; this
+    // is recorded but does not mask regressions in our deterministic tests.
+    if (process.env.TEST_CUSTOM_LAMPAC === "1") {
+      try {
+        await runScenario("custom-lampac", "http://lampac.fun/", page =>
+          page.hasLampa &&
+          ((page.head && page.wrap && page.content) || page.languageChoice) &&
+          page.documentVisibility === "visible"
+        );
+      } catch (error) {
+        console.warn("CUSTOM LAMPAC PROBE:", error.message);
+      }
+    }
   } finally {
     fs.writeFileSync(
       path.join("dist", "lampa-live-" + mode + ".json"),

@@ -3,97 +3,123 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Lampa — адрес недоступен</title>
+  <title>Lampa — подключение</title>
   <style>
     * { box-sizing: border-box; }
-    body {
-      background: #111315; color: #f0f2f3; margin: 0; padding: 24px;
-      min-height: 100vh; display: grid; place-items: center;
-      font: 16px/1.45 "Segoe UI", system-ui, sans-serif;
-    }
-    main { width: min(100%, 620px); background: #1d2023;
-      border: 1px solid #34383b; padding: 34px; border-radius: 14px; }
+    body { margin: 0; background: #111315; color: #f0f2f3; min-height: 100vh;
+      padding: 24px; display: grid; place-items: center;
+      font: 16px/1.45 "Segoe UI", system-ui, sans-serif; }
+    main { width: min(100%, 620px); padding: 34px; background: #1d2023;
+      border: 1px solid #34383b; border-radius: 14px; }
     h1 { color: #00c8bb; font-size: clamp(22px, 3vw, 28px);
       margin: 0 0 14px; font-weight: 650; }
-    p { color: #c4c8cb; margin: 0 0 24px; }
-    label { display: block; margin: 0 0 9px; font-weight: 500; }
-    input { width: 100%; padding: 15px 16px; background: #101214; color: white;
-      border: 1px solid #697174; border-radius: 9px; outline-offset: 3px;
-      font: inherit; }
+    p { margin: 0 0 24px; color: #c4c8cb; }
+    label { display: block; margin-bottom: 9px; font-weight: 500; }
+    input { width: 100%; padding: 15px 16px; background: #101214; color: #fff;
+      border: 1px solid #697174; border-radius: 9px; font: inherit; outline-offset: 3px; }
     input:focus { border-color: #00c8bb; }
-    .error { margin: 10px 0 0; min-height: 22px; color: #f19aab;
-      overflow-wrap: anywhere; font-size: 14px; }
-    .actions { display: flex; gap: 12px; margin: 23px 0 0; flex-wrap: wrap; }
-    button { padding: 12px 17px; border: 1px solid #50575b; border-radius: 8px;
-      font: inherit; background: #34393d; color: white; cursor: pointer; }
+    .message { min-height: 24px; margin-top: 12px; overflow-wrap: anywhere; font-size: 14px; }
+    .message.loading { color: #9fdbd7; }
+    .message.error { color: #f19aab; }
+    .message.idle { color: #aebabc; }
+    .spinner { display: none; width: 14px; height: 14px; vertical-align: -2px;
+      border-radius: 50%; border: 2px solid #365f5d; border-top-color: #00c8bb;
+      animation: spin .75s linear infinite; margin-right: 9px; }
+    .loading .spinner { display: inline-block; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 23px; }
+    button { cursor: pointer; padding: 12px 17px; font: inherit; color: #fff;
+      background: #34393d; border: 1px solid #50575b; border-radius: 8px; }
     button.primary { background: #00877e; border-color: #00aea1; }
     button:hover, button:focus-visible { filter: brightness(1.14); }
-    button:disabled { cursor: wait; opacity: .6; }
-    small { display: block; margin: 22px 0 0; color: #939da0; }
+    small { display: block; margin-top: 22px; color: #939da0; }
     @media (max-width: 520px) { main { padding: 22px; } button { width: 100%; } }
   </style>
 </head>
 <body>
   <main>
-    <h1>Не удалось открыть Lampa</h1>
-    <p>Проверьте адрес и подключение к интернету. Вы можете изменить адрес прямо здесь, не закрывая приложение.</p>
+    <h1>Подключение к Lampa</h1>
+    <p id="description">Проверяем указанный адрес. Приложение продолжает работать.</p>
     <form id="recovery-form">
       <label for="url">Адрес Lampa</label>
-      <input id="url" type="text" inputmode="url" autocapitalize="off"
-        autocomplete="url" spellcheck="false" required placeholder="https://example.org/" />
-      <div id="message" class="error" role="status" aria-live="polite"></div>
+      <input id="url" type="text" inputmode="url" spellcheck="false"
+        autocomplete="url" autocapitalize="off" required placeholder="https://example.org/" />
+      <div id="message" class="message loading" role="status" aria-live="polite">
+        <span class="spinner" aria-hidden="true"></span><span id="message-text">Пробуем открыть сервер…</span>
+      </div>
       <div class="actions">
         <button id="open" type="submit" class="primary">Открыть адрес</button>
         <button id="default" type="button">Открыть lampa.mx</button>
         <button id="retry" type="button">Повторить</button>
       </div>
     </form>
-    <small>Одна попытка загрузки для каждого адреса. Если сайт снова недоступен, этот экран появится сразу после ошибки. Настройки и данные сохраняются.</small>
+    <small id="hint">Ожидаем ответ сервера. Если он недоступен, появится причина ошибки и можно будет сразу исправить адрес.</small>
   </main>
   <script>
     (() => {
       "use strict";
-      const query = new URLSearchParams(location.search);
       const input = document.getElementById("url");
-      const status = document.getElementById("message");
-      const openButton = document.getElementById("open");
-      const initial = query.get("url") || "http://lampa.mx/";
-      input.value = initial;
-      status.textContent = query.get("reason") || "Не удалось подключиться к адресу.";
+      const message = document.getElementById("message");
+      const messageText = document.getElementById("message-text");
+      const heading = document.querySelector("h1");
+      const description = document.getElementById("description");
+      const hint = document.getElementById("hint");
 
-      async function attempt(url) {
-        let parsed;
+      function showState(state) {
+        if (!state || !["loading", "rendering", "error"].includes(state.phase)) return;
+        message.className = "message " + (state.phase === "error" ? "error" : "loading");
+        if (state.url) input.value = state.url;
+        const failure = state.phase === "error";
+        heading.textContent = failure ? "Не удалось открыть Lampa" : "Подключение к Lampa";
+        description.textContent = failure
+          ? "Проверьте адрес и подключение к интернету. Можно исправить адрес без перезапуска."
+          : "Пробуем открыть сервер. Дождитесь подтверждения загрузки.";
+        messageText.textContent = failure
+          ? (state.error || "Не удалось подключиться к серверу.")
+          : (state.phase === "rendering"
+            ? "Сервер ответил. Загружаем интерфейс Lampa…"
+            : "Пробуем открыть сервер " + (state.url || "") + "…");
+        hint.textContent = failure
+          ? "Адрес не изменяется автоматически. Можно повторить попытку или открыть lampa.mx."
+          : "Окно останется открытым до результата. Смена адреса доступна в любой момент.";
+      }
+
+      async function attempt(raw) {
+        let url;
         try {
-          parsed = new URL(url.trim());
-          if (!["http:", "https:"].includes(parsed.protocol) || !parsed.hostname) {
-            throw new TypeError("Введите полный адрес с http:// или https://");
+          url = new URL(raw.trim());
+          if (!["http:", "https:"].includes(url.protocol) || !url.hostname) {
+            throw new TypeError("Invalid address");
           }
         } catch {
-          status.textContent = "Введите корректный адрес с http:// или https://";
-          input.focus();
+          showState({ phase: "error", url: raw, error: "Укажите правильный адрес с http:// или https://." });
           return;
         }
-        openButton.disabled = true;
-        status.textContent = "Подключение к " + parsed.href;
+
+        // The native parent keeps this exact page on screen while the hidden
+        // candidate window loads. Do not navigate this page or show a black flash.
+        showState({ phase: "loading", url: url.href });
         try {
-          await window.electronAPI.store.set("lampaUrl", parsed.href);
+          await window.recoveryAPI.tryUrl(url.href);
         } catch (error) {
-          status.textContent = "Не удалось применить адрес: " + (error.message || error);
-          openButton.disabled = false;
+          showState({ phase: "error", url: url.href, error: String(error?.message || error) });
         }
       }
 
       document.getElementById("recovery-form").addEventListener("submit", (event) => {
         event.preventDefault();
-        attempt(input.value);
+        void attempt(input.value);
       });
       document.getElementById("default").addEventListener("click", () => {
-        input.value = "http://lampa.mx/";
-        attempt(input.value);
+        void attempt("http://lampa.mx/");
       });
-      document.getElementById("retry").addEventListener("click", () => attempt(input.value));
+      document.getElementById("retry").addEventListener("click", () => {
+        void attempt(input.value);
+      });
+      window.recoveryAPI.onState(showState);
+      const query = new URLSearchParams(location.search);
+      showState({ phase: "loading", url: query.get("url") || "http://lampa.mx/" });
       input.focus();
-      input.select();
     })();
   </script>
 </body>

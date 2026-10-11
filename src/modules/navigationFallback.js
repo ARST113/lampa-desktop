@@ -106,6 +106,7 @@ function createNavigationFallback(
     const id = ++sequence;
     current = { id, url: target };
     window.setTitle?.("Lampa — подключение: " + target);
+    window.setProgressBar?.(0.2);
     timeout = setTimeout(() => {
       fail(id, new Error("Сайт не ответил или не запустил интерфейс за 12 секунд."));
     }, timeoutMs);

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="310" height="56" viewBox="0 0 310 56" role="img" aria-label="Windows: Portable EXE">
+<title>Windows — Portable EXE</title>
+<rect width="310" height="56" rx="9" fill="#20252C"/>
+<path d="M9 0H56V56H9Q0 56 0 47V9Q0 0 9 0Z" fill="#0878D5"/>
+<path d="M17 11 29 9V22H17zM31 8.7 47 6v16H31zM17 24h12v13l-12-2zM31 24h16v16l-16-2.6z" fill="#fff"/>
+<text x="71" y="25" fill="#fff" font-family="Arial, sans-serif" font-size="17" font-weight="700">Portable EXE</text>
+<text x="71" y="43" fill="#AAB6C6" font-family="Arial, sans-serif" font-size="13">Windows x64 · без установки</text>
+<path d="M282 23v-6h9v6m-12 4 7 7 7-7m-7 7V21" fill="none" stroke="#D5DDE7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

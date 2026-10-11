@@ -12,6 +12,21 @@ try {
   process.exit(1);
 }
 
+// Force a real on-disk profile during the first launch. Tests and users must
+// be able to distinguish a successfully started Portable from an EXE that
+// silently exited before even creating LampaData.
+const fs = require("node:fs");
+const store = require("./modules/storeManager");
+if (!fs.existsSync(store.path)) {
+  try {
+    store.set("lampaUrl", store.get("lampaUrl", "http://lampa.mx"));
+    record("created new profile config", store.path);
+  } catch (error) {
+    fatal("Не удалось записать config.json. Проверьте права на папку приложения.", error);
+    process.exit(1);
+  }
+}
+
 const { setupAppLifecycle, gotTheLock } = require("./modules/appLifecycle");
 const { createWindow } = require("./modules/windowManager");
 const { setupAutoUpdater } = require("./modules/autoUpdater");

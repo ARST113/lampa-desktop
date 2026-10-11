@@ -176,135 +176,51 @@ jobs:
             dist/ac3.yml
             dist/SHASUMS256.txt
 
-      - name: Publish verified installer
+      - name: Publish stable Windows release
         if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || inputs.publish_release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.verify.outputs.tag }}
           target_commitish: ${{ github.sha }}
-          name: Lampa ${{ steps.verify.outputs.tag }} — Windows x64 AC3/EAC3 + Portable
-          prerelease: true
+          name: Lampa Desktop ${{ steps.verify.outputs.tag }} — Windows
+          prerelease: false
+          make_latest: true
+          draft: false
           fail_on_unmatched_files: true
           body: |
-            New in ac3.20: only real Lampa interfaces count as successful.
-            Reject HTTP 404, 500, 503 and other main-document 4xx/5xx
-            immediately using Electron's response status, without confusing
-            failed subresources with failed pages. Generic HTTP 200 HTML
-            without Lampa startup indicators is rejected after a short
-            detection grace period rather than hanging for 20 seconds.
-            Keep the editor visible throughout. Ignore stale ERR_ABORTED
-            errors from previous loadURL promises when rapidly switching
-            servers. Windows Electron tests exercise 404, 503, unrelated
-            JavaScript pages, and slow yet valid Lampa initialization.
+            # Lampa Desktop — Windows
 
-            New in ac3.19: follow the Android WebView navigation lifecycle.
-            The first server response may take up to 5 seconds, while an
-            HTML page that has already loaded gets its own 20-second Lampa
-            rendering allowance. The visible connection/editor window
-            persists throughout retries, displaying "Trying to open server"
-            and "Server replied; loading Lampa" rather than going blank.
-            Only after the actual interface becomes ready is the main
-            Electron window shown. Failure is displayed on the same editor.
-            Separate restricted preload and IPC for the local editor.
-            Real Windows tests cover slow JavaScript, manual retry, both
-            portable formats and a non-gating lampac.fun diagnostic probe.
+            ![Windows](https://img.shields.io/badge/Windows-10%20%2F%2011-0078D4?style=for-the-badge&logo=windows11&logoColor=white)
+            ![x64](https://img.shields.io/badge/Architecture-x64-30363D?style=for-the-badge)
+            ![AC3%2FEAC3](https://img.shields.io/badge/Audio-AC3%20%2F%20EAC3-008C80?style=for-the-badge)
 
-            New in ac3.18: reduce the one-shot Lampa readiness limit from
-            12 seconds to 3 seconds. Valid sites were verified through
-            cold-start and repeated navigation tests in Windows installer,
-            Portable EXE and unpacked Portable ZIP. Connection refusal still
-            opens the URL correction form immediately without retries.
+            **Стабильная версия для Windows x64.** Все пакеты собраны на Electron 44.4.4 с AC3/EAC3 и проверены на Windows в GitHub Actions.
 
-            New in ac3.17: try a configured URL only ONCE. On first
-            network or interface failure, immediately show a local,
-            Android-style URL correction panel with the failed URL, a
-            single Retry action and an explicit Open lampa.mx button.
-            Remove automatic host switching and all retry cascades.
-            Display the Windows window immediately with a loading title,
-            and cap unavailable site startup at 12 seconds. Real Windows
-            tests now require the correction panel after one failure
-            and manual recovery within the same EXE process for
-            installed and portable distributions.
+            ## Скачать Windows
 
-            New in ac3.16: add an actual unpacked Windows Portable ZIP that
-            launches directly without NSIS extraction. Portable EXE and ZIP
-            must each create LampaData from scratch and open real Lampa in
-            Windows CI. Early errors write %LOCALAPPDATA%/Lampa-NextGen/
-            diagnostics/startup.log and display an error dialog. Fix hidden
-            single-instance startup and allow NSIS installer to close the app
-            promptly when TorrServer is not running.
+            [![Windows — установщик EXE](https://img.shields.io/badge/Windows-Установщик%20EXE-0078D4?style=for-the-badge&logo=windows11&logoColor=white)](https://github.com/ARST113/lampa-desktop/releases/download/${{ steps.verify.outputs.tag }}/lampa-x64-1.6.0-ac3.21.exe)
 
-            New in ac3.15: interactive local recovery page instead of a blocking
-            native error dialog after failures of both official endpoints.
-            Portable config.json is watched for external URL edits while running.
-            Avoid duplicate navigation and preserve the user's corrected URL
-            during an in-flight failure. Windows CI verifies repeated invalid
-            then valid URL changes inside the SAME running installed and portable
-            process, including external config.json edits and offline recovery.
+            [![Windows — Portable EXE](https://img.shields.io/badge/Windows-Portable%20EXE-0078D4?style=for-the-badge&logo=windows11&logoColor=white)](https://github.com/ARST113/lampa-desktop/releases/download/${{ steps.verify.outputs.tag }}/lampa-portable-x64-1.6.0-ac3.21.exe)
 
-            New in ac3.14: fix Electron hidden-window false startup failures and
-            disable background throttling, and recognize Lampa's first-run
-            language chooser as a successfully loaded interactive screen. Try the official HTTPS fallback only
-            if http://lampa.mx is truly unavailable. Installed and portable
-            Windows EXEs must now pass three live-site launch scenarios each,
-            including config.json edits and automatic invalid-URL recovery,
-            before any release is published. Failure screenshots and diagnostic
-            JSON are attached to the CI workflow run.
+            [![Windows — Portable ZIP](https://img.shields.io/badge/Windows-Portable%20ZIP-0078D4?style=for-the-badge&logo=windows11&logoColor=white)](https://github.com/ARST113/lampa-desktop/releases/download/${{ steps.verify.outputs.tag }}/lampa-portable-zip-x64-1.6.0-ac3.21.zip)
 
-            New in ac3.13: fixes two competing Lampa URL navigations from
-            store.onDidChange and the automatic fallback controller. All
-            settings changes now navigate once, via the controller. The app
-            waits for Lampa appready and visible UI structure before showing
-            the window, rather than accepting a partially loaded JS global.
-            Electron tests exercise changes via the actual settings IPC,
-            including typo fallback, then entering a valid URL.
+            - **Установщик EXE:** обычная установка, автоматическое обновление.
+            - **Portable EXE:** запуск без установки; хранит профиль в `LampaData` рядом с файлом.
+            - **Portable ZIP:** распакуйте архив в отдельную папку и запустите `Lampa.exe`, без предварительной NSIS-распаковки.
 
-            New in ac3.12: invalid, unreachable or blank custom addresses
-            automatically fall back to http://lampa.mx and reset the saved URL.
-            The main window is hidden during startup to avoid a white screen.
-            If even the default cannot load, a native Retry or Exit dialog appears.
+            ## Что исправлено
 
-            New in ac3.11: Windows ZIP variant removed. Retains only portable EXE and NSIS installer.
-            Each release now runs the silent NSIS installer and opens its actual Lampa.exe
-            with a clean profile against a deterministic local HTTP page before publication.
+            - Одна попытка загрузки каждого адреса; при ошибке — редактирование URL без перезапуска.
+            - Отдельные состояния подключения и инициализации интерфейса.
+            - HTTP 4xx/5xx и посторонние HTML-страницы больше не принимаются за запущенную Lampa.
+            - Ошибки предыдущей навигации не прерывают новую попытку.
+            - Проверены переустановка поверх запущенного клиента и чистый запуск Portable EXE/ZIP.
+            - Поддержка встроенных звуковых дорожек AC3/EAC3 и текстовых субтитров MKV.
 
-            Windows x64 build of Lampa Desktop using custom Electron 44.4.4 with AC3/EAC3 build flags.
+            Пользовательские настройки Portable находятся в `LampaData`; при обновлении сохраните её. Контрольные суммы — в `SHASUMS256.txt`.
 
-            Enables embedded audio-track switching in the internal player, including torrents played through TorrServer.
-            Adds App settings → Check for updates, with background downloads and installation after confirmation.
+            Исходный код и отчёты проверок: https://github.com/ARST113/lampa-desktop
 
-            New in ac3.10: fixes blank screens on failed URLs with a standalone error page,
-            restores URL switching from that page, and permits same-site navigation.
-            The Windows CI now exercises network failure and recovery in real Electron.
-
-            New in ac3.9: removes the original developer donation menu, embedded payment QR codes,
-            and Robokassa payment URLs from all Windows builds. About now links to the ARST113 fork
-            and checks this fork's latest release (including prereleases).
-            The original GPL license and source attribution remain available in the repository.
-
-            New in ac3.7: fixes subtitles disappearing when Lampa changes its in-page history/hash route while playback continues.
-            The subtitle subscription now stays active until the player closes or the document actually changes.
-            Reads embedded text subtitle packets directly from the MKV bytes already fetched by the video player.
-            Already buffered languages switch immediately without launching FFmpeg or a second media download.
-            On a seek into a long caption, uses the MKV subtitle index for a bounded byte-range lookup. Files without a subtitle index resume captions from the next received packet.
-            Opens developer tools with F12, Ctrl+Shift+I, or App settings → Open console.
-            Supports embedded MKV text subtitles (SRT, ASS/SSA, WebVTT) in the internal player through TorrServer, including compatibility with Lampac Tracks menus.
-            Discovers subtitle tracks from the MKV header, independently of TorrServer FFprobe metadata.
-            Supports language switching, seeking and disabling subtitles. Video and audio are not transcoded.
-            Graphical PGS/VobSub tracks are unsupported by this reader; complex ASS styling is converted to WebVTT text.
-
-            Based on Kolovatoff/lampa-desktop. Updates for this build use ARST113/lampa-desktop.
-            Runtime: https://github.com/ARST113/electron/releases/tag/v44.4.4-ac3-eac3
-            The build verifies the NSIS installation and real app startup, packaged Electron version and unchanged custom ffmpeg.dll.
-
-            Windows download choices:
-            - `lampa-portable-x64-*.exe` — standalone portable launcher, no installation.
-            - `lampa-x64-*.exe` — standard NSIS installer, checked by actual installation and launch.
-
-            Portable settings, Chromium profile, and TorrServer data are stored in the LampaData
-            directory next to the portable EXE. Keep this directory when replacing the portable EXE.
-            Portable EXE uses manual application updates; installed EXE supports automatic updates.
-            SHA-256 checksums are in SHASUMS256.txt.
           files: |
             dist/*.exe
             dist/*.zip

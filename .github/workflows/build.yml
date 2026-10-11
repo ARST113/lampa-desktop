@@ -190,19 +190,15 @@ jobs:
           body: |
             # Lampa Desktop — Windows
 
-            ![Windows](https://img.shields.io/badge/Windows-10%20%2F%2011-0078D4?style=for-the-badge&logo=windows11&logoColor=white)
-            ![x64](https://img.shields.io/badge/Architecture-x64-30363D?style=for-the-badge)
-            ![AC3%2FEAC3](https://img.shields.io/badge/Audio-AC3%20%2F%20EAC3-008C80?style=for-the-badge)
-
             **Стабильная версия для Windows x64.** Все пакеты собраны на Electron 44.4.4 с AC3/EAC3 и проверены на Windows в GitHub Actions.
 
             ## Скачать Windows
 
-            [![Windows — установщик EXE](https://img.shields.io/badge/Windows-Установщик%20EXE-0078D4?style=for-the-badge&logo=windows11&logoColor=white)](https://github.com/ARST113/lampa-desktop/releases/download/${{ steps.verify.outputs.tag }}/lampa-x64-1.6.0-ac3.21.exe)
+            [![Windows — установщик EXE](https://raw.githubusercontent.com/ARST113/lampa-desktop/main/.github/badges/windows-installer.svg)](https://github.com/ARST113/lampa-desktop/releases/download/${{ steps.verify.outputs.tag }}/lampa-x64-1.6.0-ac3.21.exe)
 
-            [![Windows — Portable EXE](https://img.shields.io/badge/Windows-Portable%20EXE-0078D4?style=for-the-badge&logo=windows11&logoColor=white)](https://github.com/ARST113/lampa-desktop/releases/download/${{ steps.verify.outputs.tag }}/lampa-portable-x64-1.6.0-ac3.21.exe)
+            [![Windows — Portable EXE](https://raw.githubusercontent.com/ARST113/lampa-desktop/main/.github/badges/windows-portable-exe.svg)](https://github.com/ARST113/lampa-desktop/releases/download/${{ steps.verify.outputs.tag }}/lampa-portable-x64-1.6.0-ac3.21.exe)
 
-            [![Windows — Portable ZIP](https://img.shields.io/badge/Windows-Portable%20ZIP-0078D4?style=for-the-badge&logo=windows11&logoColor=white)](https://github.com/ARST113/lampa-desktop/releases/download/${{ steps.verify.outputs.tag }}/lampa-portable-zip-x64-1.6.0-ac3.21.zip)
+            [![Windows — Portable ZIP](https://raw.githubusercontent.com/ARST113/lampa-desktop/main/.github/badges/windows-portable-zip.svg)](https://github.com/ARST113/lampa-desktop/releases/download/${{ steps.verify.outputs.tag }}/lampa-portable-zip-x64-1.6.0-ac3.21.zip)
 
             - **Установщик EXE:** обычная установка, автоматическое обновление.
             - **Portable EXE:** запуск без установки; хранит профиль в `LampaData` рядом с файлом.

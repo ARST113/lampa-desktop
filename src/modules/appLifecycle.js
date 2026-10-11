@@ -11,8 +11,8 @@ if (!gotTheLock) {
 
 function setupAppLifecycle() {
   app.on("second-instance", () => {
-    const { getMainWindow } = require("./windowManager");
-    const mainWindow = getMainWindow();
+    const { getActiveWindow } = require("./windowManager");
+    const mainWindow = getActiveWindow();
 
     if (mainWindow && !mainWindow.isDestroyed()) {
       if (mainWindow.isMinimized()) mainWindow.restore();

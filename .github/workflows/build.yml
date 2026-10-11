@@ -17,7 +17,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: lampa-windows-ac3-eac3-staged-navigation
+  group: lampa-windows-ac3-eac3-strict-lampa-validation
   cancel-in-progress: true
 
 jobs:
@@ -186,6 +186,17 @@ jobs:
           prerelease: true
           fail_on_unmatched_files: true
           body: |
+            New in ac3.20: only real Lampa interfaces count as successful.
+            Reject HTTP 404, 500, 503 and other main-document 4xx/5xx
+            immediately using Electron's response status, without confusing
+            failed subresources with failed pages. Generic HTTP 200 HTML
+            without Lampa startup indicators is rejected after a short
+            detection grace period rather than hanging for 20 seconds.
+            Keep the editor visible throughout. Ignore stale ERR_ABORTED
+            errors from previous loadURL promises when rapidly switching
+            servers. Windows Electron tests exercise 404, 503, unrelated
+            JavaScript pages, and slow yet valid Lampa initialization.
+
             New in ac3.19: follow the Android WebView navigation lifecycle.
             The first server response may take up to 5 seconds, while an
             HTML page that has already loaded gets its own 20-second Lampa

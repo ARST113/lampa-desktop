@@ -38,7 +38,18 @@ app.whenReady().then(async () => {
   const { normalizeHttpUrl } = require("../src/modules/pageNavigation");
   const store = require("../src/modules/storeManager");
   server = http.createServer((req, res) => {
+    if (req.url === "/http-404" || req.url === "/http-503") {
+      const status = req.url === "/http-404" ? 404 : 503;
+      res.writeHead(status, { "Content-Type": "text/html; charset=utf-8" });
+      res.end("<!doctype html><title>Server unavailable</title><body>Not Lampa</body>");
+      return;
+    }
     res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+    if (req.url === "/unrelated-script") {
+      res.end("<!doctype html><title>Unrelated website</title>" +
+        "<body><h1>Other service</h1><script>document.body.dataset.ready='yes'</script></body>");
+      return;
+    }
     if (req.url === "/blank") {
       res.end("<!doctype html><title>Empty</title><body>Empty site</body>");
       return;
@@ -89,6 +100,8 @@ app.whenReady().then(async () => {
   const navigation = createNavigationFallback(browser, store, {
     timeoutMs: 400,
     renderTimeoutMs: 1500,
+    unrecognizedPageMs: 600,
+    emptyDocumentMs: 300,
     pollMs: 30,
     onLoading: (url) => setPanel("loading", url),
     onDocumentLoaded: (url) => setPanel("rendering", url),
@@ -123,8 +136,33 @@ app.whenReady().then(async () => {
   assert.equal(panel.id, firstPanelId);
   console.log("PASS: Retry uses same panel and exactly one new network request");
 
+  // HTTP status alone must be inspected. An error document must never be
+  // described as Lampa, even though Chromium loaded its HTML successfully.
+  for (const status of [404, 503]) {
+    const previousFailure = failure;
+    const started = Date.now();
+    navigation.open(base + "http-" + status);
+    await until(async () => failure > previousFailure && (await panelState())?.error,
+      "HTTP " + status + " was incorrectly treated as a working Lampa page");
+    assert.ok(Date.now() - started < 1700, "HTTP " + status + " was not rejected promptly");
+    assert.match((await panelState()).message, new RegExp("HTTP " + status));
+    assert.equal(browser.isVisible(), false);
+    console.log("PASS: HTTP " + status + " fails immediately on the same recovery panel");
+  }
+
+  // A completely unrelated site can return HTTP 200 and run JavaScript.
+  // It still must not be treated as a Lampa instance.
+  const beforeUnrelated = failure;
+  const unrelatedStarted = Date.now();
+  navigation.open(base + "unrelated-script");
+  await until(async () => failure > beforeUnrelated && (await panelState())?.error,
+    "Unrelated HTML/JS webpage was treated as Lampa", 2400);
+  assert.ok(Date.now() - unrelatedStarted < 1800);
+  assert.match((await panelState()).message, /это не Lampa/);
+  console.log("PASS: HTTP 200 unrelated JavaScript page is rejected promptly");
+
   await content(panel, `document.getElementById("url").value = ${JSON.stringify(base + "slow-script")}; document.querySelector("#recovery-form").requestSubmit()`);
-  await until(async () => (await panelState())?.message?.startsWith("Сервер ответил"),
+  await until(async () => (await panelState())?.message?.startsWith("Страница получена"),
     "HTML arrival was not distinguished from slow script initialization");
   assert.equal(browser.isVisible(), false);
   assert.equal(panel.isVisible(), true);

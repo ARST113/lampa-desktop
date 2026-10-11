@@ -7,6 +7,10 @@ const { normalizeHttpUrl } = require("./pageNavigation");
 const STARTUP_TIMEOUT_MS = 5000;
 const RENDER_TIMEOUT_MS = 20000;
 const READINESS_POLL_MS = 200;
+// A generic HTML response is not evidence that the URL hosts Lampa.
+// Allow a short grace period for dynamically injected Lampa scripts.
+const UNRECOGNIZED_PAGE_MS = 2600;
+const EMPTY_DOCUMENT_MS = 650;
 
 const LAMPA_RENDERED_SCRIPT = `(() => {
   const root = document.getElementById("app");
@@ -17,6 +21,26 @@ const LAMPA_RENDERED_SCRIPT = `(() => {
     "body > .lang .lang__selector-item[data-code]",
   );
   return Boolean(window.Lampa && ((head && shell && content) || languageChoice));
+})()`;
+
+const LAMPA_PAGE_PROBE_SCRIPT = `(() => {
+  const root = document.getElementById("app");
+  const wrap = root?.querySelector(".wrap");
+  const head = root?.querySelector(".head");
+  const content = root?.querySelector(".wrap__content");
+  const language = document.querySelector("body > .lang .lang__selector-item[data-code]");
+  const hasLampa = Boolean(window.Lampa);
+  // A Lampa shell, first-run chooser, Lampa global, or recognisable asset
+  // signals an asynchronous Lampa bootstrap which deserves the full allowance.
+  const assets = Array.from(document.scripts).some((script) =>
+    /(?:lampa|app(?:\\.min)?\\.js)(?:[?#]|$)/i.test(script.src || "")
+  );
+  const shell = Boolean(root && wrap && head && content);
+  return {
+    ready: hasLampa && (shell || Boolean(language)),
+    candidate: hasLampa || Boolean(language) || shell || assets,
+    scripts: document.scripts.length,
+  };
 })()`;
 
 function isSameNavigation(actual, expected) {
@@ -38,6 +62,8 @@ function createNavigationFallback(
     timeoutMs = STARTUP_TIMEOUT_MS,
     renderTimeoutMs = RENDER_TIMEOUT_MS,
     pollMs = READINESS_POLL_MS,
+    unrecognizedPageMs = UNRECOGNIZED_PAGE_MS,
+    emptyDocumentMs = EMPTY_DOCUMENT_MS,
     onLoading = () => {},
     onDocumentLoaded = () => {},
     onReady = () => {},
@@ -78,6 +104,7 @@ function createNavigationFallback(
     if (!isCurrent(id) || current.stage !== "connecting") return;
     if (!isSameNavigation(window.webContents.getURL(), current.url)) return;
     current.stage = "rendering";
+    current.documentAt = Date.now();
     clearTimers();
     // A valid HTML document has arrived. Slow custom Lampa deployments
     // frequently need longer than five seconds to initialize their scripts.
@@ -92,18 +119,28 @@ function createNavigationFallback(
     if (!isCurrent(id)) return;
     if (!isSameNavigation(window.webContents.getURL(), current.url)) return;
 
-    const ready = await window.webContents
-      .executeJavaScript(LAMPA_RENDERED_SCRIPT, true)
-      .catch(() => false);
+    const probe = await window.webContents
+      .executeJavaScript(LAMPA_PAGE_PROBE_SCRIPT, true)
+      .catch(() => null);
     if (!isCurrent(id)) return;
 
-    if (ready) {
+    if (probe?.ready) {
       const loadMs = Date.now() - current.startedAt;
       clearTimers();
       current = null;
       console.info("Lampa URL открыт:", window.webContents.getURL(), "за", loadMs, "мс");
       onReady();
       return;
+    }
+    // HTTP 200 is also returned by unrelated websites, parked domains
+    // and some reverse proxy error pages. Do not wait 20 seconds for them.
+    if (current.stage === "rendering" && probe && !probe.candidate) {
+      const elapsed = Date.now() - current.documentAt;
+      const limit = probe.scripts === 0 ? emptyDocumentMs : unrecognizedPageMs;
+      if (elapsed >= limit) {
+        fail(id, new Error("По этому адресу открылась страница, но это не Lampa."));
+        return;
+      }
     }
     poll = setTimeout(() => void checkReady(id), pollMs);
   }
@@ -138,7 +175,14 @@ function createNavigationFallback(
     }, timeoutMs);
 
     try {
-      Promise.resolve(window.loadURL(target)).catch((error) => fail(id, error));
+      Promise.resolve(window.loadURL(target)).catch((error) => {
+        // Chromium may reject the NEW loadURL promise with an old navigation's
+        // ERR_ABORTED when a previously failed page is replaced quickly.
+        // That is not evidence that the new server is unavailable.
+        if (error?.errno === -3 || error?.code === "ERR_ABORTED" ||
+            (error?.url && !isSameNavigation(error.url, target))) return;
+        fail(id, error);
+      });
     } catch (error) {
       fail(id, error);
     }
@@ -146,6 +190,19 @@ function createNavigationFallback(
 
   // dom-ready tracks the actual navigation lifecycle, like WebView's
   // onPageFinished, rather than treating script initialization as networking.
+  // Electron emits this event for the actual main-frame HTTP response.
+  // It exposes HTTP 404/500/503 without waiting for a rendered error page,
+  // and ignores failed images, subtitles, scripts and other subresources.
+  const request = window.webContents.session.webRequest;
+  request.onResponseStarted({ urls: ["<all_urls>"] }, (details) => {
+    if (!current || details.resourceType !== "mainFrame" ||
+        details.webContentsId !== window.webContents.id ||
+        !isSameNavigation(details.url, current.url)) return;
+    if (details.statusCode >= 400) {
+      fail(current.id, new Error("Сервер вернул ошибку HTTP " + details.statusCode + "."));
+    }
+  });
+
   window.webContents.on("dom-ready", () => {
     if (current) documentLoaded(current.id);
   });
@@ -167,6 +224,7 @@ function createNavigationFallback(
   window.on("closed", () => {
     clearTimers();
     current = null;
+    request.onResponseStarted(null);
   });
 
   return {
@@ -182,4 +240,6 @@ module.exports = {
   STARTUP_TIMEOUT_MS,
   RENDER_TIMEOUT_MS,
   LAMPA_RENDERED_SCRIPT,
+  LAMPA_PAGE_PROBE_SCRIPT,
+  UNRECOGNIZED_PAGE_MS,
 };

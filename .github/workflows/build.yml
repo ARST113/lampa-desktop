@@ -50,7 +50,7 @@ jobs:
         run: node --test test/autoUpdater.test.cjs test/portablePaths.test.cjs test/pageNavigation.test.cjs test/branding.test.cjs test/subtitles.test.cjs test/matroska.test.cjs
 
       - name: Normalize JavaScript formatting for reproducible test execution
-        run: yarn exec prettier src/main.js src/modules/appLifecycle.js src/modules/portablePaths.js src/modules/startupDiagnostics.js src/modules/navigationFallback.js src/modules/windowManager.js test/windows-fresh-portable.cjs test/portablePaths.test.cjs test/navigation-recovery-electron.cjs test/pageNavigation.test.cjs test/installed-windows-live.cjs --write
+        run: yarn exec prettier src/main.js src/modules/appLifecycle.js src/modules/portablePaths.js src/modules/startupDiagnostics.js src/modules/navigationFallback.js src/modules/windowManager.js src/recoveryPreload.js test/windows-fresh-portable.cjs test/portablePaths.test.cjs test/navigation-recovery-electron.cjs test/pageNavigation.test.cjs test/installed-windows-live.cjs --write
 
       - name: Check changed file formatting
         run: yarn exec prettier package.json build/subtitle-tools.json scripts/verify-electron.cjs test/run-subtitle-integration.cjs .github/workflows/build.yml src/main.js src/modules/portablePaths.js src/modules/appLifecycle.js src/modules/startupDiagnostics.js src/modules/navigationFallback.js src/modules/pageNavigation.js src/modules/pluginHandler.js src/modules/ipcHandlers/windowHandlers.js src/modules/ipcHandlers/storeHandlers.js src/modules/ipcHandlers/settingsHandlers.js src/modules/torrServerManager.js src/modules/autoUpdater.js src/modules/windowManager.js src/modules/ipcHandlers/otherHandlers.js src/modules/ipcHandlers/subtitleHandlers.js src/modules/ipcHandlers/index.js src/modules/subtitleExtractor.js src/modules/matroskaSubtitles.js src/modules/subtitleStream.js src/modules/playerOptionsInterceptor.js src/modules/pluginHandler.js src/subtitleBridge.js src/preload.js src/plugin.js test/*.cjs README.md --check
@@ -141,6 +141,7 @@ jobs:
         run: |
           $version = (Get-Content package.json -Raw | ConvertFrom-Json).version
           $installedExe = Join-Path $env:RUNNER_TEMP 'LampaInstallerSmoke/Lampa.exe'
+          $env:TEST_CUSTOM_LAMPAC = "1"
           node test/installed-windows-live.cjs $installedExe installed
           if ($LASTEXITCODE -ne 0) { throw 'Live Lampa site failed in the installed EXE. Do not publish.' }
 
@@ -185,6 +186,18 @@ jobs:
           prerelease: true
           fail_on_unmatched_files: true
           body: |
+            New in ac3.19: follow the Android WebView navigation lifecycle.
+            The first server response may take up to 5 seconds, while an
+            HTML page that has already loaded gets its own 20-second Lampa
+            rendering allowance. The visible connection/editor window
+            persists throughout retries, displaying "Trying to open server"
+            and "Server replied; loading Lampa" rather than going blank.
+            Only after the actual interface becomes ready is the main
+            Electron window shown. Failure is displayed on the same editor.
+            Separate restricted preload and IPC for the local editor.
+            Real Windows tests cover slow JavaScript, manual retry, both
+            portable formats and a non-gating lampac.fun diagnostic probe.
+
             New in ac3.18: reduce the one-shot Lampa readiness limit from
             12 seconds to 3 seconds. Valid sites were verified through
             cold-start and repeated navigation tests in Windows installer,

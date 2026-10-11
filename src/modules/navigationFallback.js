@@ -99,6 +99,10 @@ function createNavigationFallback(
       return;
     }
 
+    // Settings IPC and an external config.json watcher may report the same
+    // update concurrently. A duplicate must not restart an in-flight load.
+    if (current?.url === target) return;
+
     // Each explicit attempt replaces the previous one; callbacks from old
     // loadURL promises, old timeouts and cancelled navigations are ignored.
     clearTimers();

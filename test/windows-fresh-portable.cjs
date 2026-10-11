@@ -90,8 +90,11 @@ async function main() {
         });
         if (res.ok) {
           const targets = await res.json();
-          const page = targets.find((t) => t.type === "page" && t.webSocketDebuggerUrl);
-          if (page) {
+          // Two BrowserWindows now coexist during connection: a persistent
+          // local editor and a hidden remote candidate. Scan both explicitly.
+          const pages = targets.filter((t) => t.type === "page" && t.webSocketDebuggerUrl);
+          for (const page of pages) {
+            if (page.url.startsWith("file:")) continue;
             snapshot = await inspect(page.webSocketDebuggerUrl);
             if (snapshot?.lampa && (snapshot.shell || snapshot.lang) &&
                 snapshot.visibility === "visible" && result.profileCreated) {

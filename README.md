@@ -1,32 +1,22 @@
-# 🎬 Lampa Desktop
+# Lampa Desktop
 
-### 📥 Скачать последнюю версию (с поддержкой AC3/EAC3):
+Неофициальный настольный клиент Lampa на Electron с поддержкой AC3/EAC3 и встроенных текстовых субтитров MKV.
 
-[![Скачать для Windows](https://img.shields.io/badge/%D0%A1%D0%BA%D0%B0%D1%87%D0%B0%D1%82%D1%8C-Windows_x64-0078D6?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/ARST113/lampa-desktop/releases/download/v1.6.0-ac3.13/lampa-x64-1.6.0-ac3.13.exe)
-[![Скачать для Linux](https://img.shields.io/badge/%D0%A1%D0%BA%D0%B0%D1%87%D0%B0%D1%82%D1%8C-Linux_x86__64-FCC624?style=for-the-badge&logo=linux&logoColor=black)](https://github.com/ARST113/lampa-desktop/releases/download/v1.6.0-ac3.7/lampa-x86_64-1.6.0-ac3.7-linux-ac3.rpm)
+## Скачать последнюю стабильную версию для Windows
 
-[![Скачать для Linux ARM64](https://img.shields.io/badge/%D0%A1%D0%BA%D0%B0%D1%87%D0%B0%D1%82%D1%8C-Linux_ARM64-FCC624?style=for-the-badge&logo=linux&logoColor=black)](https://github.com/ARST113/lampa-desktop/releases/download/v1.6.0-ac3.7/lampa-aarch64-1.6.0-ac3.7-linux-ac3.rpm)
+[![Windows — установщик](https://img.shields.io/badge/Windows-Установщик%20EXE-0078D4?style=for-the-badge&logo=windows11&logoColor=white)](https://github.com/ARST113/lampa-desktop/releases/download/v1.6.0-ac3.21/lampa-x64-1.6.0-ac3.21.exe)
+[![Windows — Portable EXE](https://img.shields.io/badge/Windows-Portable%20EXE-0078D4?style=for-the-badge&logo=windows11&logoColor=white)](https://github.com/ARST113/lampa-desktop/releases/download/v1.6.0-ac3.21/lampa-portable-x64-1.6.0-ac3.21.exe)
+[![Windows — Portable ZIP](https://img.shields.io/badge/Windows-Portable%20ZIP-0078D4?style=for-the-badge&logo=windows11&logoColor=white)](https://github.com/ARST113/lampa-desktop/releases/download/v1.6.0-ac3.21/lampa-portable-zip-x64-1.6.0-ac3.21.zip)
 
-[![Скачать для macOS (Universal)](https://img.shields.io/badge/%D0%A1%D0%BA%D0%B0%D1%87%D0%B0%D1%82%D1%8C-macOS_Universal-000000?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/ARST113/lampa-desktop/releases/download/v1.6.0-ac3.7/lampa-universal-1.6.0-ac3.7-macos-ac3.dmg)
+**Версия 1.6.0-ac3.21 — Windows x64.** Обычный установщик поддерживает автообновление. Portable EXE и Portable ZIP не требуют установки и создают профиль `LampaData` рядом с программой. Сохраняйте эту папку при обновлении.
 
-[![Скачать для macOS (Intel)](https://img.shields.io/badge/%D0%A1%D0%BA%D0%B0%D1%87%D0%B0%D1%82%D1%8C-macOS_Intel-000000?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/ARST113/lampa-desktop/releases/download/v1.6.0-ac3.7/lampa-x64-1.6.0-ac3.7-macos-ac3.dmg)
+В этой версии обновлена проверка доступности адресов Lampa: одна попытка подключения, понятное сообщение об ошибке, ручное исправление URL и проверка настоящего интерфейса вместо принятия произвольной HTML-страницы за рабочий сайт.
 
-[![Скачать для macOS (Apple Silicon)](https://img.shields.io/badge/%D0%A1%D0%BA%D0%B0%D1%87%D0%B0%D1%82%D1%8C-macOS_ARM64-000000?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/ARST113/lampa-desktop/releases/download/v1.6.0-ac3.7/lampa-arm64-1.6.0-ac3.7-macos-ac3.dmg)
+[Все выпуски и контрольные суммы](https://github.com/ARST113/lampa-desktop/releases/latest)
 
-### Windows x64 — два EXE (v1.6.0-ac3.13)
+### Ранее опубликованные Linux и macOS сборки
 
-- [Portable EXE — без установки](https://github.com/ARST113/lampa-desktop/releases/download/v1.6.0-ac3.13/lampa-portable-x64-1.6.0-ac3.13.exe)
-- [Обычный установщик EXE — NSIS](https://github.com/ARST113/lampa-desktop/releases/download/v1.6.0-ac3.13/lampa-x64-1.6.0-ac3.13.exe)
-
-**Portable EXE:** запускайте файл без установки; рядом создаётся папка `LampaData/` с настройками и профилем Chromium. При обновлении заменяйте EXE и сохраняйте `LampaData/`. Приложению нужны права записи в эту папку. Portable EXE обновляется вручную.
-
-**Обычный установщик EXE:** устанавливает программу в Windows, использует стандартный профиль приложения и поддерживает штатное автообновление. На GitHub Actions проверяются реальная тихая установка NSIS, наличие исполняемых файлов и запуск установленного `Lampa.exe` на чистом профиле с локальным HTTP-сайтом.
-
-**Windows ZIP удалён из новых сборок**, поскольку Portable EXE уже обеспечивает запуск без установки. Старые ZIP остаются только в исторических релизах GitHub.
-
-**Исправление ac3.13:** устранён конфликт двух обработчиков изменения адреса: прежний слушатель `electron-store` вызывал `BrowserWindow.loadURL` в обход автоматического возврата. Все способы изменения URL (настройки в Lampa, импорт настроек, IPC) проходят через единый контроллер. Готовность проверяется после `window.appready` и отрисовки реального интерфейса `#app .head` и `#app .wrap`, а не просто по наличию `window.Lampa`. При смене адреса окно временно скрывается, пока интерфейс не восстановлен.\n\n**Исправление ac3.12:** если пользователь случайно укажет неверный адрес или адрес перестанет отвечать, приложение автоматически откроет `http://lampa.mx` и сохранит стандартный адрес в настройках. Даже если сервер вернул пустую страницу (HTTP 200), тайм-аут определения Lampa переведёт приложение на стандартный адрес. До загрузки интерфейса окно скрыто — белая страница не показывается. Если недоступен и стандартный сервер, приложение выведет системный диалог «Повторить / Закрыть», без бесконечных редиректов. Проверяется на реальном Electron в CI.\n\n**Изменения ac3.9:** из меню приложения удалены реквизиты поддержки первоначального разработчика, QR-коды и ссылки Robokassa. Окно «О приложении» открывает репозиторий ARST113.
-
-**Исправление ac3.10:** обработка переходов внутри выбранного сайта, отдельная страница восстановления при сетевой ошибке и работа кнопки повторного открытия адреса. Сетевые блокировки или сбои скриптов самого сайта эти изменения не устраняют.
+Ранее опубликованные пакеты остаются доступны в [архиве релизов](https://github.com/ARST113/lampa-desktop/releases/tag/v1.6.0-ac3.7). Они относятся к предыдущему выпуску, а не к текущей Windows-версии. В этом выпуске новые сборки Linux и macOS не создавались.
 
 [![GitHub All Releases](https://img.shields.io/github/downloads/ARST113/lampa-desktop/total)](https://github.com/ARST113/lampa-desktop/releases)
 [![GitHub Release](https://img.shields.io/github/v/release/ARST113/lampa-desktop?include_prereleases&style=for-the-badge&logo=github)](https://github.com/ARST113/lampa-desktop/releases)

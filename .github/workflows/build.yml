@@ -10,6 +10,7 @@ on:
   push:
     branches:
       - main
+      - test/lampa-timeout-3sec
     tags:
       - "v*-ac3.*"
 
@@ -17,7 +18,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: lampa-windows-ac3-eac3-ac314-onboarding
+  group: lampa-timeout-trial-3s
   cancel-in-progress: true
 
 jobs:
@@ -176,7 +177,7 @@ jobs:
             dist/SHASUMS256.txt
 
       - name: Publish verified installer
-        if: github.event_name == 'push' || inputs.publish_release
+        if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || inputs.publish_release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.verify.outputs.tag }}

@@ -4,9 +4,9 @@
 
 ## Скачать последнюю стабильную версию для Windows
 
-[![Windows — установщик](https://img.shields.io/badge/Windows-Установщик%20EXE-0078D4?style=for-the-badge&logo=windows11&logoColor=white)](https://github.com/ARST113/lampa-desktop/releases/download/v1.6.0-ac3.21/lampa-x64-1.6.0-ac3.21.exe)
-[![Windows — Portable EXE](https://img.shields.io/badge/Windows-Portable%20EXE-0078D4?style=for-the-badge&logo=windows11&logoColor=white)](https://github.com/ARST113/lampa-desktop/releases/download/v1.6.0-ac3.21/lampa-portable-x64-1.6.0-ac3.21.exe)
-[![Windows — Portable ZIP](https://img.shields.io/badge/Windows-Portable%20ZIP-0078D4?style=for-the-badge&logo=windows11&logoColor=white)](https://github.com/ARST113/lampa-desktop/releases/download/v1.6.0-ac3.21/lampa-portable-zip-x64-1.6.0-ac3.21.zip)
+[![Windows — установщик](.github/badges/windows-installer.svg)](https://github.com/ARST113/lampa-desktop/releases/download/v1.6.0-ac3.21/lampa-x64-1.6.0-ac3.21.exe)
+[![Windows — Portable EXE](.github/badges/windows-portable-exe.svg)](https://github.com/ARST113/lampa-desktop/releases/download/v1.6.0-ac3.21/lampa-portable-x64-1.6.0-ac3.21.exe)
+[![Windows — Portable ZIP](.github/badges/windows-portable-zip.svg)](https://github.com/ARST113/lampa-desktop/releases/download/v1.6.0-ac3.21/lampa-portable-zip-x64-1.6.0-ac3.21.zip)
 
 **Версия 1.6.0-ac3.21 — Windows x64.** Обычный установщик поддерживает автообновление. Portable EXE и Portable ZIP не требуют установки и создают профиль `LampaData` рядом с программой. Сохраняйте эту папку при обновлении.
 
@@ -16,20 +16,20 @@
 
 ### Ранее опубликованные Linux и macOS сборки
 
-Ранее опубликованные пакеты остаются доступны в [архиве релизов](https://github.com/ARST113/lampa-desktop/releases/tag/v1.6.0-ac3.7). Они относятся к предыдущему выпуску, а не к текущей Windows-версии. В этом выпуске новые сборки Linux и macOS не создавались.
+[![Linux x86_64](.github/badges/linux-x64.svg)](https://github.com/ARST113/lampa-desktop/releases/download/v1.6.0-ac3.7/lampa-x86_64-1.6.0-ac3.7-linux-ac3.rpm)
+[![Linux ARM64](.github/badges/linux-arm64.svg)](https://github.com/ARST113/lampa-desktop/releases/download/v1.6.0-ac3.7/lampa-aarch64-1.6.0-ac3.7-linux-ac3.rpm)
+[![macOS Universal](.github/badges/macos-universal.svg)](https://github.com/ARST113/lampa-desktop/releases/download/v1.6.0-ac3.7/lampa-universal-1.6.0-ac3.7-macos-ac3.dmg)
 
-[![GitHub All Releases](https://img.shields.io/github/downloads/ARST113/lampa-desktop/total)](https://github.com/ARST113/lampa-desktop/releases)
-[![GitHub Release](https://img.shields.io/github/v/release/ARST113/lampa-desktop?include_prereleases&style=for-the-badge&logo=github)](https://github.com/ARST113/lampa-desktop/releases)
-[![License](https://img.shields.io/github/license/ARST113/lampa-desktop?style=for-the-badge&color=blue)](LICENSE)
+Эти кнопки ведут на **архивный выпуск ac3.7**; новые Linux и macOS сборки для ac3.21 не создавались. [Архив всех релизов](https://github.com/ARST113/lampa-desktop/releases) · [Лицензия](LICENSE).
 
 > **Неофициальный** десктоп-клиент для просмотра фильмов и сериалов  
 > Построен на базе **Electron**, использует API сторонних сервисов.
 
 ---
 
-## Windows x64, Linux и macOS с Electron AC3/EAC3
+## Ранее выпущенные версии для Linux и macOS
 
-Этот форк собирает Lampa 1.6.0 на **Electron 44.4.4** для Windows x64, Linux x86_64/ARM64 и macOS —
+В предыдущих релизах Lampa 1.6.0 использовался **Electron 44.4.4** для Windows x64, Linux x86_64/ARM64 и macOS —
 универсальный файл для Intel и Apple Silicon, плюс отдельные сборки под каждый процессор.
 Используется [собранный Electron с флагами AC3/EAC3](https://github.com/ARST113/electron/releases/tag/v44.4.4-ac3-eac3).
 Установщики публикуются в [релизах этого форка](https://github.com/ARST113/lampa-desktop/releases).

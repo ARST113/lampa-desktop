@@ -23,7 +23,7 @@ concurrency:
 jobs:
   build-windows:
     runs-on: windows-latest
-    timeout-minutes: 45
+    timeout-minutes: 70
     env:
       ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
     steps:
@@ -50,10 +50,10 @@ jobs:
         run: node --test test/autoUpdater.test.cjs test/portablePaths.test.cjs test/pageNavigation.test.cjs test/branding.test.cjs test/subtitles.test.cjs test/matroska.test.cjs
 
       - name: Normalize JavaScript formatting for reproducible test execution
-        run: yarn exec prettier src/modules/navigationFallback.js src/modules/windowManager.js test/navigation-recovery-electron.cjs test/pageNavigation.test.cjs test/installed-windows-live.cjs --write
+        run: yarn exec prettier src/main.js src/modules/appLifecycle.js src/modules/portablePaths.js src/modules/startupDiagnostics.js src/modules/navigationFallback.js src/modules/windowManager.js test/windows-fresh-portable.cjs test/navigation-recovery-electron.cjs test/pageNavigation.test.cjs test/installed-windows-live.cjs --write
 
       - name: Check changed file formatting
-        run: yarn exec prettier package.json build/subtitle-tools.json scripts/verify-electron.cjs test/run-subtitle-integration.cjs .github/workflows/build.yml src/main.js src/modules/portablePaths.js src/modules/navigationFallback.js src/modules/pageNavigation.js src/modules/pluginHandler.js src/modules/ipcHandlers/windowHandlers.js src/modules/ipcHandlers/storeHandlers.js src/modules/ipcHandlers/settingsHandlers.js src/modules/torrServerManager.js src/modules/autoUpdater.js src/modules/windowManager.js src/modules/ipcHandlers/otherHandlers.js src/modules/ipcHandlers/subtitleHandlers.js src/modules/ipcHandlers/index.js src/modules/subtitleExtractor.js src/modules/matroskaSubtitles.js src/modules/subtitleStream.js src/modules/playerOptionsInterceptor.js src/modules/pluginHandler.js src/subtitleBridge.js src/preload.js src/plugin.js test/*.cjs README.md --check
+        run: yarn exec prettier package.json build/subtitle-tools.json scripts/verify-electron.cjs test/run-subtitle-integration.cjs .github/workflows/build.yml src/main.js src/modules/portablePaths.js src/modules/appLifecycle.js src/modules/startupDiagnostics.js src/modules/navigationFallback.js src/modules/pageNavigation.js src/modules/pluginHandler.js src/modules/ipcHandlers/windowHandlers.js src/modules/ipcHandlers/storeHandlers.js src/modules/ipcHandlers/settingsHandlers.js src/modules/torrServerManager.js src/modules/autoUpdater.js src/modules/windowManager.js src/modules/ipcHandlers/otherHandlers.js src/modules/ipcHandlers/subtitleHandlers.js src/modules/ipcHandlers/index.js src/modules/subtitleExtractor.js src/modules/matroskaSubtitles.js src/modules/subtitleStream.js src/modules/playerOptionsInterceptor.js src/modules/pluginHandler.js src/subtitleBridge.js src/preload.js src/plugin.js test/*.cjs README.md --check
 
       - name: Download and verify custom Electron
         shell: pwsh
@@ -103,6 +103,35 @@ jobs:
         shell: pwsh
         run: ./scripts/test-windows-installer.ps1
 
+      - name: Build genuine unpacked Portable ZIP without NSIS extraction
+        shell: pwsh
+        run: |
+          $version = (Get-Content package.json -Raw | ConvertFrom-Json).version
+          Set-Content -LiteralPath 'dist/win-unpacked/portable.flag' -Value 'Lampa ZIP portable profile' -Encoding ascii
+          $zip = "dist/lampa-portable-zip-x64-$version.zip"
+          Compress-Archive -Path 'dist/win-unpacked/*' -DestinationPath $zip -CompressionLevel Optimal -Force
+          if ((Get-Item $zip).Length -lt 10MB) { throw 'Portable ZIP unexpectedly small.' }
+          $sum = (Get-FileHash -LiteralPath $zip -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$sum  $(Split-Path $zip -Leaf)" | Add-Content -LiteralPath dist/SHASUMS256.txt -Encoding utf8
+
+      - name: Verify both Portable formats create LampaData from scratch
+        shell: pwsh
+        run: |
+          $version = (Get-Content package.json -Raw | ConvertFrom-Json).version
+          $portableDir = Join-Path $env:RUNNER_TEMP 'LampaPortableFresh'
+          New-Item -ItemType Directory -Path $portableDir -Force | Out-Null
+          $portableExe = Join-Path $portableDir "lampa-portable-$version.exe"
+          Copy-Item -LiteralPath "dist/lampa-portable-x64-$version.exe" -Destination $portableExe
+          node test/windows-fresh-portable.cjs $portableExe $portableDir portable-exe
+          if ($LASTEXITCODE -ne 0) { throw 'Portable EXE failed clean profile bootstrap.' }
+
+          $zipDir = Join-Path $env:RUNNER_TEMP 'LampaPortableZipFresh'
+          New-Item -ItemType Directory -Path $zipDir -Force | Out-Null
+          Expand-Archive -LiteralPath "dist/lampa-portable-zip-x64-$version.zip" -DestinationPath $zipDir -Force
+          if (!(Test-Path -LiteralPath (Join-Path $zipDir 'portable.flag'))) { throw 'Missing ZIP profile marker.' }
+          node test/windows-fresh-portable.cjs (Join-Path $zipDir 'Lampa.exe') $zipDir portable-zip
+          if ($LASTEXITCODE -ne 0) { throw 'Unpacked Portable ZIP failed clean profile bootstrap.' }
+
       - name: Verify real Lampa startup in both distributed Windows formats
         shell: pwsh
         run: |
@@ -126,6 +155,7 @@ jobs:
           if-no-files-found: warn
           path: |
             dist/lampa-live-*.json
+            dist/lampa-fresh-*.json
             dist/lampa-installed-*.png
             dist/lampa-portable-*.png
 
@@ -136,6 +166,7 @@ jobs:
           if-no-files-found: error
           path: |
             dist/*.exe
+            dist/*.zip
             dist/*.blockmap
             dist/ac3.yml
             dist/SHASUMS256.txt
@@ -150,6 +181,14 @@ jobs:
           prerelease: true
           fail_on_unmatched_files: true
           body: |
+            New in ac3.16: add an actual unpacked Windows Portable ZIP that
+            launches directly without NSIS extraction. Portable EXE and ZIP
+            must each create LampaData from scratch and open real Lampa in
+            Windows CI. Early errors write %LOCALAPPDATA%/Lampa-NextGen/
+            diagnostics/startup.log and display an error dialog. Fix hidden
+            single-instance startup and allow NSIS installer to close the app
+            promptly when TorrServer is not running.
+
             New in ac3.15: interactive local recovery page instead of a blocking
             native error dialog after failures of both official endpoints.
             Portable config.json is watched for external URL edits while running.
@@ -223,6 +262,7 @@ jobs:
             SHA-256 checksums are in SHASUMS256.txt.
           files: |
             dist/*.exe
+            dist/*.zip
             dist/*.blockmap
             dist/ac3.yml
             dist/SHASUMS256.txt

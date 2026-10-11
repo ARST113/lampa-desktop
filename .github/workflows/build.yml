@@ -103,6 +103,10 @@ jobs:
         shell: pwsh
         run: ./scripts/test-windows-installer.ps1
 
+      - name: Test in-place NSIS upgrade over a running Lampa process
+        shell: pwsh
+        run: ./scripts/test-windows-upgrade.ps1
+
       - name: Build genuine unpacked Portable ZIP without NSIS extraction
         shell: pwsh
         run: |

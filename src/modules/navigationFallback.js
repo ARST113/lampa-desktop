@@ -2,7 +2,10 @@ const { normalizeHttpUrl } = require("./pageNavigation");
 
 // A single URL is attempted once. Any failure immediately returns control
 // to the local URL editor; there is no automatic fallback or mirror cascade.
-const STARTUP_TIMEOUT_MS = 3000;
+// WebView-style lifecycle: short network/first-DOM check, followed by a
+// separate grace interval for JavaScript and plugins to render the Lampa UI.
+const STARTUP_TIMEOUT_MS = 5000;
+const RENDER_TIMEOUT_MS = 20000;
 const READINESS_POLL_MS = 200;
 
 const LAMPA_RENDERED_SCRIPT = `(() => {
@@ -33,7 +36,10 @@ function createNavigationFallback(
   _store,
   {
     timeoutMs = STARTUP_TIMEOUT_MS,
+    renderTimeoutMs = RENDER_TIMEOUT_MS,
     pollMs = READINESS_POLL_MS,
+    onLoading = () => {},
+    onDocumentLoaded = () => {},
     onReady = () => {},
     onUnavailable = () => {},
   } = {},
@@ -66,6 +72,20 @@ function createNavigationFallback(
     // Crucially, do not rewrite lampaUrl and do not load a different host.
     // Let the user edit the exact attempted URL or choose lampa.mx explicitly.
     onUnavailable(error, failedUrl);
+  }
+
+  function documentLoaded(id) {
+    if (!isCurrent(id) || current.stage !== "connecting") return;
+    if (!isSameNavigation(window.webContents.getURL(), current.url)) return;
+    current.stage = "rendering";
+    clearTimers();
+    // A valid HTML document has arrived. Slow custom Lampa deployments
+    // frequently need longer than five seconds to initialize their scripts.
+    onDocumentLoaded(current.url);
+    timeout = setTimeout(() => {
+      fail(id, new Error("Страница ответила, но интерфейс Lampa не запустился."));
+    }, renderTimeoutMs);
+    void checkReady(id);
   }
 
   async function checkReady(id) {
@@ -109,11 +129,12 @@ function createNavigationFallback(
     clearTimers();
     lastTarget = target;
     const id = ++sequence;
-    current = { id, url: target, startedAt: Date.now() };
+    current = { id, url: target, startedAt: Date.now(), stage: "connecting" };
     window.setTitle?.("Lampa — подключение: " + target);
     window.setProgressBar?.(0.2);
+    onLoading(target);
     timeout = setTimeout(() => {
-      fail(id, new Error("Сайт не ответил или не запустил интерфейс за 3 секунды."));
+      fail(id, new Error("Сервер не ответил за 5 секунд."));
     }, timeoutMs);
 
     try {
@@ -123,7 +144,14 @@ function createNavigationFallback(
     }
   }
 
+  // dom-ready tracks the actual navigation lifecycle, like WebView's
+  // onPageFinished, rather than treating script initialization as networking.
+  window.webContents.on("dom-ready", () => {
+    if (current) documentLoaded(current.id);
+  });
   window.webContents.on("did-finish-load", () => {
+    if (!current) return;
+    documentLoaded(current.id);
     if (current) void checkReady(current.id);
   });
 
@@ -152,5 +180,6 @@ module.exports = {
   createNavigationFallback,
   isSameNavigation,
   STARTUP_TIMEOUT_MS,
+  RENDER_TIMEOUT_MS,
   LAMPA_RENDERED_SCRIPT,
 };

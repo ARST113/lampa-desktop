@@ -1,4 +1,4 @@
-const { BrowserWindow, screen } = require("electron");
+const { BrowserWindow, screen, ipcMain } = require("electron");
 const path = require("node:path");
 const fs = require("node:fs");
 const store = require("./storeManager");
@@ -12,7 +12,93 @@ const {
 const { createNavigationFallback } = require("./navigationFallback");
 
 let mainWindow = null;
+let recoveryWindow = null;
+let recoveryState = null;
+let recoveryHandlerRegistered = false;
+let stoppingRecovery = false;
 const navigationControllers = new WeakMap();
+
+function ensureRecoveryHandler() {
+  if (recoveryHandlerRegistered) return;
+  recoveryHandlerRegistered = true;
+  ipcMain.handle("lampa-recovery-try-url", (event, raw) => {
+    if (!recoveryWindow || recoveryWindow.isDestroyed() ||
+        event.sender !== recoveryWindow.webContents ||
+        event.senderFrame !== recoveryWindow.webContents.mainFrame) {
+      throw new Error("Недоступен защищённый редактор адреса Lampa.");
+    }
+    const url = normalizeHttpUrl(raw);
+    const window = mainWindow;
+    if (!window || window.isDestroyed()) throw new Error("Окно Lampa закрыто.");
+    store.set("lampaUrl", url);
+    openLampaUrl(window, url);
+    return true;
+  });
+}
+
+function setRecoveryState(phase, url, error = "") {
+  recoveryState = { phase, url, error };
+  if (recoveryWindow && !recoveryWindow.isDestroyed() &&
+      !recoveryWindow.webContents.isLoadingMainFrame()) {
+    recoveryWindow.webContents.send("lampa-recovery-state", recoveryState);
+  }
+}
+
+function ensureRecoveryWindow() {
+  ensureRecoveryHandler();
+  if (recoveryWindow && !recoveryWindow.isDestroyed()) return recoveryWindow;
+  const panel = new BrowserWindow({
+    width: 830, height: 540, minWidth: 680, minHeight: 480,
+    show: false, backgroundColor: "#111315", autoHideMenuBar: true,
+    title: "Lampa — подключение",
+    icon: path.join(__dirname, "../build/icon.png"),
+    webPreferences: {
+      preload: path.join(__dirname, "..", "recoveryPreload.js"),
+      nodeIntegration: false, contextIsolation: true, sandbox: false,
+      backgroundThrottling: false,
+    },
+  });
+  recoveryWindow = panel;
+  panel.setMenu(null);
+  panel.webContents.on("did-finish-load", () => {
+    if (panel === recoveryWindow && recoveryState) {
+      panel.webContents.send("lampa-recovery-state", recoveryState);
+    }
+  });
+  panel.on("closed", () => {
+    if (panel === recoveryWindow) recoveryWindow = null;
+    // Closing the visible recovery editor is an explicit Exit action.
+    // Never strand a hidden Lampa main process behind a closed panel.
+    if (!stoppingRecovery && mainWindow && !mainWindow.isDestroyed() &&
+        !mainWindow.isVisible()) mainWindow.close();
+  });
+  void panel.loadFile(path.join(__dirname, "..", "recovery.html"), {
+    query: { url: store.get("lampaUrl", DEFAULT_LAMPA_URL) },
+  }).catch((error) => console.error("Не удалось создать окно подключения:", error));
+  return panel;
+}
+
+function showRecoveryState(phase, url, error = "") {
+  const panel = ensureRecoveryWindow();
+  setRecoveryState(phase, url, error);
+  if (!panel.isDestroyed()) {
+    if (panel.isMinimized()) panel.restore();
+    panel.show();
+    panel.focus();
+  }
+  if (mainWindow && !mainWindow.isDestroyed() && mainWindow.isVisible()) mainWindow.hide();
+}
+
+function closeRecoveryPanel() {
+  if (recoveryWindow && !recoveryWindow.isDestroyed()) recoveryWindow.hide();
+}
+
+function getActiveWindow() {
+  if (recoveryWindow && !recoveryWindow.isDestroyed() &&
+      recoveryWindow.isVisible()) return recoveryWindow;
+  return mainWindow;
+}
+
 
 function getFullscreenConfig() {
   const mode = store.get("fullscreenMode", "last");
@@ -151,18 +237,20 @@ function createWindow() {
 
   setupNavigationHandlers(mainWindow);
   const navigation = setupErrorHandler(mainWindow, {
+    onLoading: (url) => showRecoveryState("loading", url),
+    onDocumentLoaded: (url) => setRecoveryState("rendering", url),
     onReady: () => {
       if (!mainWindow.isDestroyed()) mainWindow.setProgressBar(-1);
       showReadyWindow();
+      closeRecoveryPanel();
     },
   });
   navigationControllers.set(mainWindow, navigation);
   setupWindowOpenHandler(mainWindow);
   setupPluginHandler(mainWindow);
 
-  // Show an actual application window immediately, rather than hiding the
-  // entire program until multiple network timeouts have elapsed.
-  showReadyWindow();
+  // Keep one local visible connection panel while remote Electron navigates
+  // in the background. Never replace the panel on failure or retry.
   navigation.open(store.get("lampaUrl", DEFAULT_LAMPA_URL));
   watchConfiguredUrl(mainWindow, navigation);
 
@@ -218,6 +306,10 @@ function createWindow() {
 
   mainWindow.on("closed", () => {
     mainWindow = null;
+    stoppingRecovery = true;
+    if (recoveryWindow && !recoveryWindow.isDestroyed()) recoveryWindow.destroy();
+    recoveryWindow = null;
+    stoppingRecovery = false;
   });
 
   if (process.argv.includes("--dev")) {
@@ -301,38 +393,26 @@ function watchConfiguredUrl(window, navigation) {
   window.once("closed", () => fs.unwatchFile(filename, changed));
 }
 
-function setupErrorHandler(window, { onReady = () => window.show() } = {}) {
-  let navigation;
-
-  navigation = createNavigationFallback(window, store, {
+function setupErrorHandler(
+  window,
+  {
+    onReady = () => window.show(),
+    onLoading = () => {},
+    onDocumentLoaded = () => {},
+  } = {},
+) {
+  return createNavigationFallback(window, store, {
     onReady,
+    onLoading,
+    onDocumentLoaded,
     onUnavailable(error, failedUrl) {
       console.warn("Адрес Lampa не открылся:", failedUrl, error);
-      if (window.isDestroyed()) return;
-      // There is no second network attempt and no implicit config rewrite.
-      // The offline editor remains interactive even if the entire network is
-      // down, and lampa.mx is a manual single-click choice.
-      void window
-        .loadFile(path.join(__dirname, "..", "recovery.html"), {
-          query: {
-            url: failedUrl || "",
-            reason: String(error?.message || error || "Неизвестная ошибка"),
-          },
-        })
-        .then(() => {
-          if (!window.isDestroyed()) {
-            window.setProgressBar(-1);
-            window.show();
-          }
-        })
-        .catch((recoveryError) => {
-          console.error("Не удалось открыть экран восстановления:", recoveryError);
-          if (!window.isDestroyed()) window.show();
-        });
+      if (!window.isDestroyed()) {
+        window.setProgressBar(-1);
+        showRecoveryState("error", failedUrl, String(error?.message || error));
+      }
     },
   });
-
-  return navigation;
 }
 
 function openLampaUrl(window, url) {
@@ -354,6 +434,7 @@ function setupWindowOpenHandler(mainWindow) {
 module.exports = {
   createWindow,
   getMainWindow,
+  getActiveWindow,
   setupNavigationHandlers,
   setupErrorHandler,
   openLampaUrl,

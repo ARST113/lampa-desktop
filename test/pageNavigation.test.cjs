@@ -138,6 +138,21 @@ test("readiness requires the actual Lampa interface, not just a global", () => {
   assert.equal(src.includes("Boolean(window.Lampa && document.body)"), false);
 });
 
+test("loading keeps recovery panel visible until the remote Lampa UI is ready", () => {
+  const root = path.join(__dirname, "..", "src");
+  const manager = fs.readFileSync(path.join(root, "modules/windowManager.js"), "utf8");
+  const navigation = fs.readFileSync(path.join(root, "modules/navigationFallback.js"), "utf8");
+  const editor = fs.readFileSync(path.join(root, "recovery.html"), "utf8");
+  assert.match(manager, /showRecoveryState\("loading", url\)/);
+  assert.match(manager, /setRecoveryState\("rendering", url\)/);
+  assert.match(manager, /closeRecoveryPanel\(\)/);
+  assert.match(navigation, /window\.webContents\.on\("dom-ready"/);
+  assert.match(navigation, /RENDER_TIMEOUT_MS = 20000/);
+  assert.match(navigation, /STARTUP_TIMEOUT_MS = 5000/);
+  assert.match(editor, /Пробуем открыть сервер/);
+  assert.match(editor, /window\.recoveryAPI\.onState\(showState\)/);
+});
+
 test("manual URL changes go through the fallback controller", () => {
   const root = path.join(__dirname, "..", "src");
   const ipc = fs.readFileSync(

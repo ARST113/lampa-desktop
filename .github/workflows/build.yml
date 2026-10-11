@@ -10,7 +10,6 @@ on:
   push:
     branches:
       - main
-      - test/lampa-timeout-3sec
     tags:
       - "v*-ac3.*"
 
@@ -18,7 +17,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: lampa-timeout-trial-3s
+  group: lampa-windows-ac3-eac3-ac314-onboarding
   cancel-in-progress: true
 
 jobs:
@@ -177,7 +176,7 @@ jobs:
             dist/SHASUMS256.txt
 
       - name: Publish verified installer
-        if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || inputs.publish_release
+        if: github.event_name == 'push' || inputs.publish_release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.verify.outputs.tag }}
@@ -186,6 +185,12 @@ jobs:
           prerelease: true
           fail_on_unmatched_files: true
           body: |
+            New in ac3.18: reduce the one-shot Lampa readiness limit from
+            12 seconds to 3 seconds. Valid sites were verified through
+            cold-start and repeated navigation tests in Windows installer,
+            Portable EXE and unpacked Portable ZIP. Connection refusal still
+            opens the URL correction form immediately without retries.
+
             New in ac3.17: try a configured URL only ONCE. On first
             network or interface failure, immediately show a local,
             Android-style URL correction panel with the failed URL, a

@@ -229,6 +229,16 @@ function createWindow() {
     }
 
     mainWindow.show();
+    if (!mainWindow.isVisible()) {
+      const candidate = mainWindow;
+      for (const delay of [80, 200, 500]) {
+        setTimeout(() => {
+          if (!candidate.isDestroyed() && lampaReady && !candidate.isVisible()) {
+            candidate.show();
+          }
+        }, delay);
+      }
+    }
 
     if (process.platform === "darwin") {
       mainWindow.focus();

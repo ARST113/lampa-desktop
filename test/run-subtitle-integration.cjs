@@ -13,6 +13,7 @@ for (const script of [
   "subtitle-navigation-electron.cjs",
   "devtools-electron.cjs",
   "navigation-recovery-electron.cjs",
+  "window-startup-electron.cjs",
 ]) {
   const result = spawnSync(
     path.join(root, ".cache/electron-ac3-eac3/electron.exe"),

@@ -143,7 +143,9 @@ test("successful startup never flashes the recovery panel; failed server keeps a
   const manager = fs.readFileSync(path.join(root, "modules/windowManager.js"), "utf8");
   const navigation = fs.readFileSync(path.join(root, "modules/navigationFallback.js"), "utf8");
   const editor = fs.readFileSync(path.join(root, "recovery.html"), "utf8");
-  assert.match(manager, /onLoading: \(url\) => setRecoveryState\("loading", url\)/);
+  assert.match(manager, /setRecoveryState\("loading", url\)/);
+  assert.match(manager, /mainWindow\.on\("ready-to-show"/);
+  assert.match(manager, /if \(lampaReady\) showReadyWindow\(\)/);
   assert.doesNotMatch(manager, /onLoading: \(url\) => showRecoveryState/);
   assert.match(manager, /showRecoveryState\("error", failedUrl/);
   assert.match(manager, /setRecoveryState\("rendering", url\)/);

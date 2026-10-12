@@ -236,15 +236,31 @@ function createWindow() {
   };
 
   setupNavigationHandlers(mainWindow);
+  let lampaReady = false;
+  // A very fast document can finish its UI probe before Electron fires
+  // ready-to-show. Retry displaying only after a verified Lampa UI is ready.
+  mainWindow.on("ready-to-show", () => {
+    if (lampaReady) showReadyWindow();
+  });
   const navigation = setupErrorHandler(mainWindow, {
-    // Remember the loading state for an already-open recovery panel, but do
-    // not create or reveal that panel on a normal startup or server change.
-    // Only an actual connection/rendering failure should open the URL editor.
-    onLoading: (url) => setRecoveryState("loading", url),
+    // Preserve an existing recovery editor during retries, but do not open
+    // one for an ordinary startup or a switch to a healthy server.
+    onLoading: (url) => {
+      lampaReady = false;
+      setRecoveryState("loading", url);
+    },
     onDocumentLoaded: (url) => setRecoveryState("rendering", url),
     onReady: () => {
-      if (!mainWindow.isDestroyed()) mainWindow.setProgressBar(-1);
+      lampaReady = true;
+      // Showing the verified page must not depend on taskbar integration.
       showReadyWindow();
+      if (!mainWindow.isDestroyed()) {
+        try {
+          mainWindow.setProgressBar(-1);
+        } catch (error) {
+          console.warn("Не удалось сбросить индикатор загрузки:", error);
+        }
+      }
       closeRecoveryPanel();
     },
   });

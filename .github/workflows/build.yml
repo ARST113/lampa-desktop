@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       publish_release:
-        description: Publish the verified installer to a GitHub prerelease
+        description: Publish verified packages as a stable GitHub release
         type: boolean
         default: true
   push:
@@ -179,31 +179,21 @@ jobs:
             dist/ac3.yml
             dist/SHASUMS256.txt
 
-      - name: Publish standalone download links for PR 10 preview
-        if: github.event_name == 'pull_request' && github.event.pull_request.number == 10 && github.event.pull_request.head.repo.full_name == github.repository
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: v1.6.0-ac3.21-startup-fix1
-          target_commitish: ${{ github.event.pull_request.head.sha }}
-          name: Lampa Desktop ac3.21 — исправление запуска (тест)
-          prerelease: true
-          make_latest: false
-          draft: false
-          fail_on_unmatched_files: true
-          body: |
-            Тестовая версия с исправленным прямым запуском сохранённого сервера и показом окна подключения только при ошибке. Проверены Windows installer, Portable EXE и Portable ZIP.
-
-            Сохранён номер сборки ac3.21. Это тестовый prerelease, официальный Latest не меняется.
-
-            Изменения и тесты: https://github.com/ARST113/lampa-desktop/pull/10
-          files: |
-            dist/lampa-x64-1.6.0-ac3.21.exe
-            dist/lampa-portable-x64-1.6.0-ac3.21.exe
-            dist/lampa-portable-zip-x64-1.6.0-ac3.21.zip
-            dist/SHASUMS256.txt
+      - name: Check whether this version is already released
+        id: release_check
+        if: github.event_name != 'pull_request'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = "${{ steps.verify.outputs.tag }}"
+          $releases = gh release list --repo "${{ github.repository }}" --json tagName --limit 100 | ConvertFrom-Json
+          if ($LASTEXITCODE -ne 0) { throw 'Failed to read existing GitHub releases.' }
+          $exists = @($releases | Where-Object { $_.tagName -eq $tag }).Count -gt 0
+          "exists=$($exists.ToString().ToLowerInvariant())" >> $env:GITHUB_OUTPUT
 
       - name: Publish stable Windows release
-        if: (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) || (github.event_name == 'workflow_dispatch' && inputs.publish_release)
+        if: steps.release_check.outputs.exists == 'false' && ((github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))) || (github.event_name == 'workflow_dispatch' && inputs.publish_release))
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.verify.outputs.tag }}
@@ -220,11 +210,11 @@ jobs:
 
             ## Скачать Windows
 
-            [![Windows — установщик EXE](https://raw.githubusercontent.com/ARST113/lampa-desktop/main/.github/badges/windows-installer.svg)](https://github.com/ARST113/lampa-desktop/releases/download/${{ steps.verify.outputs.tag }}/lampa-x64-1.6.0-ac3.21.exe)
+            [![Windows — установщик EXE](https://raw.githubusercontent.com/ARST113/lampa-desktop/main/.github/badges/windows-installer.svg)](https://github.com/ARST113/lampa-desktop/releases/download/${{ steps.verify.outputs.tag }}/lampa-x64-1.6.0-ac3.22.exe)
 
-            [![Windows — Portable EXE](https://raw.githubusercontent.com/ARST113/lampa-desktop/main/.github/badges/windows-portable-exe.svg)](https://github.com/ARST113/lampa-desktop/releases/download/${{ steps.verify.outputs.tag }}/lampa-portable-x64-1.6.0-ac3.21.exe)
+            [![Windows — Portable EXE](https://raw.githubusercontent.com/ARST113/lampa-desktop/main/.github/badges/windows-portable-exe.svg)](https://github.com/ARST113/lampa-desktop/releases/download/${{ steps.verify.outputs.tag }}/lampa-portable-x64-1.6.0-ac3.22.exe)
 
-            [![Windows — Portable ZIP](https://raw.githubusercontent.com/ARST113/lampa-desktop/main/.github/badges/windows-portable-zip.svg)](https://github.com/ARST113/lampa-desktop/releases/download/${{ steps.verify.outputs.tag }}/lampa-portable-zip-x64-1.6.0-ac3.21.zip)
+            [![Windows — Portable ZIP](https://raw.githubusercontent.com/ARST113/lampa-desktop/main/.github/badges/windows-portable-zip.svg)](https://github.com/ARST113/lampa-desktop/releases/download/${{ steps.verify.outputs.tag }}/lampa-portable-zip-x64-1.6.0-ac3.22.zip)
 
             - **Установщик EXE:** обычная установка, автоматическое обновление.
             - **Portable EXE:** запуск без установки; хранит профиль в `LampaData` рядом с файлом.
@@ -232,7 +222,8 @@ jobs:
 
             ## Что исправлено
 
-            - Одна попытка загрузки каждого адреса; при ошибке — редактирование URL без перезапуска.
+            - Первый запуск напрямую открывает lampa.mx, а следующие запуски — сохранённый сервер без промежуточного окна.
+            - Экран исправления адреса появляется только после подтверждённой ошибки загрузки.
             - Отдельные состояния подключения и инициализации интерфейса.
             - HTTP 4xx/5xx и посторонние HTML-страницы больше не принимаются за запущенную Lampa.
             - Ошибки предыдущей навигации не прерывают новую попытку.

@@ -21,7 +21,10 @@ for (const script of [
     { env, windowsHide: true, encoding: "utf8", timeout: 70000 },
   );
   if (result.status !== 0) {
-    console.error(result.error || [result.stdout, result.stderr].filter(Boolean).join("\\n"));
+    console.error(
+      result.error ||
+        [result.stdout, result.stderr].filter(Boolean).join("\\n"),
+    );
     process.exitCode = 1;
     break;
   } else {

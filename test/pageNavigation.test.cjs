@@ -138,12 +138,14 @@ test("readiness requires the actual Lampa interface, not just a global", () => {
   assert.equal(src.includes("Boolean(window.Lampa && document.body)"), false);
 });
 
-test("loading keeps recovery panel visible until the remote Lampa UI is ready", () => {
+test("successful startup never flashes the recovery panel; failed server keeps an existing panel", () => {
   const root = path.join(__dirname, "..", "src");
   const manager = fs.readFileSync(path.join(root, "modules/windowManager.js"), "utf8");
   const navigation = fs.readFileSync(path.join(root, "modules/navigationFallback.js"), "utf8");
   const editor = fs.readFileSync(path.join(root, "recovery.html"), "utf8");
-  assert.match(manager, /showRecoveryState\("loading", url\)/);
+  assert.match(manager, /onLoading: \(url\) => setRecoveryState\("loading", url\)/);
+  assert.doesNotMatch(manager, /onLoading: \(url\) => showRecoveryState/);
+  assert.match(manager, /showRecoveryState\("error", failedUrl/);
   assert.match(manager, /setRecoveryState\("rendering", url\)/);
   assert.match(manager, /closeRecoveryPanel\(\)/);
   assert.match(navigation, /window\.webContents\.on\("dom-ready"/);

@@ -20,7 +20,10 @@ for (const script of [
     [path.join(__dirname, script)],
     { env, windowsHide: true, encoding: "utf8", timeout: 70000 },
   );
-  if (result.status !== 0) {
+  const incompleteStartupTest =
+    script === "window-startup-electron.cjs" &&
+    !result.stdout.includes("PASS: restart reuses saved server");
+  if (result.status !== 0 || incompleteStartupTest) {
     console.error(
       result.error ||
         [result.stdout, result.stderr].filter(Boolean).join("\\n"),

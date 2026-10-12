@@ -54,16 +54,6 @@ app.whenReady().then(async () => {
   store.set("autoUpdate", false);
 
   window = createWindow();
-  const show = window.show.bind(window);
-  window.show = () => {
-    console.log("TEST WINDOW show() before", window.isVisible(), window.isMinimized());
-    const result = show();
-    console.log("TEST WINDOW show() after", window.isVisible(), window.isMinimized());
-    return result;
-  };
-  for (const event of ["show", "hide", "ready-to-show", "minimize", "restore"]) {
-    window.on(event, () => console.log("TEST WINDOW event", event, window.isVisible()));
-  }
   assert.equal(BrowserWindow.getAllWindows().length, 1,
     "A normal launch must not create the recovery editor");
 

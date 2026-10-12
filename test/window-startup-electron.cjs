@@ -53,7 +53,23 @@ app.whenReady().then(async () => {
   assert.equal(BrowserWindow.getAllWindows().length, 1,
     "A normal launch must not create the recovery editor");
 
-  await until(() => window.isVisible(), "Saved valid server did not display Lampa");
+  await until(() => window.isVisible(), "Saved valid server did not display Lampa").catch(
+    async (error) => {
+      const renderer = await window.webContents.executeJavaScript(
+        `(() => ({ url: location.href, hasLampa: Boolean(window.Lampa),
+          head: Boolean(document.querySelector("#app .head")),
+          wrap: Boolean(document.querySelector("#app .wrap")),
+          content: Boolean(document.querySelector("#app .wrap__content")),
+          html: document.documentElement?.outerHTML?.slice(0, 500) }))()`,
+        true,
+      ).catch((cause) => ({ error: String(cause) }));
+      const windows = BrowserWindow.getAllWindows().map((item) => ({
+        title: item.getTitle(), visible: item.isVisible(),
+        url: item.webContents.getURL(),
+      }));
+      throw new Error(error.message + " " + JSON.stringify({ renderer, windows }));
+    },
+  );
   assert.equal(editorFor(window), undefined,
     "A valid saved server flashed the recovery editor");
   assert.equal(new URL(window.webContents.getURL()).host, new URL(saved).host);

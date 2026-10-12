@@ -12,6 +12,10 @@ fs.rmSync(profile, { recursive: true, force: true });
 fs.mkdirSync(profile, { recursive: true });
 app.setPath("userData", profile);
 
+// Keep Electron alive after closing the last window so the restart scenario
+// executes instead of ending the test process with the default exit code 0.
+app.on("window-all-closed", () => {});
+
 const watchdog = setTimeout(() => app.exit(2), 40000);
 let server;
 let window;

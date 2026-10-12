@@ -4,13 +4,13 @@
 
 ## Скачать Lampa Desktop
 
-**Все доступные сборки находятся в одном разделе.** Windows — актуальный выпуск **1.6.0-ac3.21**; Linux и macOS — ранее опубликованный **1.6.0-ac3.7**. Кнопки открывают прямую загрузку нужного файла.
+**Все доступные сборки находятся в одном разделе.** Windows — актуальный выпуск **1.6.0-ac3.22**; Linux и macOS — ранее опубликованный **1.6.0-ac3.7**. Кнопки открывают прямую загрузку нужного файла.
 
-### Windows x64 — 1.6.0-ac3.21
+### Windows x64 — 1.6.0-ac3.22
 
-[![Windows — установщик EXE](.github/badges/windows-installer.svg)](https://github.com/ARST113/lampa-desktop/releases/download/v1.6.0-ac3.21/lampa-x64-1.6.0-ac3.21.exe)
-[![Windows — Portable EXE](.github/badges/windows-portable-exe.svg)](https://github.com/ARST113/lampa-desktop/releases/download/v1.6.0-ac3.21/lampa-portable-x64-1.6.0-ac3.21.exe)
-[![Windows — Portable ZIP](.github/badges/windows-portable-zip.svg)](https://github.com/ARST113/lampa-desktop/releases/download/v1.6.0-ac3.21/lampa-portable-zip-x64-1.6.0-ac3.21.zip)
+[![Windows — установщик EXE](.github/badges/windows-installer.svg)](https://github.com/ARST113/lampa-desktop/releases/download/v1.6.0-ac3.22/lampa-x64-1.6.0-ac3.22.exe)
+[![Windows — Portable EXE](.github/badges/windows-portable-exe.svg)](https://github.com/ARST113/lampa-desktop/releases/download/v1.6.0-ac3.22/lampa-portable-x64-1.6.0-ac3.22.exe)
+[![Windows — Portable ZIP](.github/badges/windows-portable-zip.svg)](https://github.com/ARST113/lampa-desktop/releases/download/v1.6.0-ac3.22/lampa-portable-zip-x64-1.6.0-ac3.22.zip)
 
 - **Установщик EXE:** стандартная установка в Windows с поддержкой автообновления.
 - **Portable EXE:** один файл, запуск без установки.
@@ -26,7 +26,7 @@
 - **x86_64 / AMD64:** RPM для 64-битных процессоров Intel и AMD.
 - **ARM64 / aarch64:** RPM для 64-битных ARM.
 
-**32-битной Linux-сборки x86/i386 нет.** Linux x86_64 — тоже 64-битная версия. Оба пакета относятся к архивному релизу ac3.7; Linux ac3.21 не выпускался.
+**32-битной Linux-сборки x86/i386 нет.** Linux x86_64 — тоже 64-битная версия. Оба пакета относятся к архивному релизу ac3.7; Linux ac3.22 не выпускался.
 
 ### macOS — 1.6.0-ac3.7
 
@@ -42,9 +42,9 @@
 - **Intel x64:** Mac с процессорами Intel.
 - **Apple Silicon ARM64:** Mac на процессорах серии M (M1 и новее).
 
-Требуется **macOS 13 Ventura или новее**. Это архивные версии ac3.7; macOS ac3.21 не выпускался. Из-за отсутствия нотарификации Apple для первого запуска может потребоваться команда **Открыть** в контекстном меню Finder.
+Требуется **macOS 13 Ventura или новее**. Это архивные версии ac3.7; macOS ac3.22 не выпускался. Из-за отсутствия нотарификации Apple для первого запуска может потребоваться команда **Открыть** в контекстном меню Finder.
 
-**[Последний релиз Windows](https://github.com/ARST113/lampa-desktop/releases/latest)** · **[Все релизы](https://github.com/ARST113/lampa-desktop/releases)** · **[SHA-256 Windows ac3.21](https://github.com/ARST113/lampa-desktop/releases/download/v1.6.0-ac3.21/SHASUMS256.txt)**
+**[Последний релиз Windows](https://github.com/ARST113/lampa-desktop/releases/latest)** · **[Все релизы](https://github.com/ARST113/lampa-desktop/releases)** · **[SHA-256 Windows ac3.22](https://github.com/ARST113/lampa-desktop/releases/download/v1.6.0-ac3.22/SHASUMS256.txt)**
 
 ---
 
@@ -68,7 +68,7 @@
 
 Для сборки Windows требуются Windows x64, Node.js 24 и Yarn 4.9.4. Запустите yarn install --immutable, затем scripts/prepare-electron.ps1 и scripts/prepare-subtitle-tools.ps1, после чего yarn build-win. Для проверки готового файла используйте scripts/verify-electron.cjs.
 
-Ранее подготовленные сборки macOS находятся в релизе ac3.7; их исходная ветка — macos/ac3-eac3. Новые Linux и macOS версии в релизе ac3.21 не собирались.
+Ранее подготовленные сборки macOS находятся в релизе ac3.7; их исходная ветка — macos/ac3-eac3. Новые Linux и macOS версии в релизе ac3.22 не собирались.
 
 ## Авторство и лицензия
 

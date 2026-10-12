@@ -30,13 +30,13 @@
 
 ### macOS — 1.6.0-ac3.7
 
-[![macOS Universal](.github/badges/macos-universal.svg)](https://github.com/ARST113/lampa-desktop/releases/download/v1.6.0-ac3.7/lampa-universal-1.6.0-ac3.7-macos-ac3.dmg) · [ZIP](https://github.com/ARST113/lampa-desktop/releases/download/v1.6.0-ac3.7/lampa-universal-1.6.0-ac3.7-macos-ac3.zip)
+[![macOS Universal](.github/badges/macos-universal.svg)](https://github.com/ARST113/lampa-desktop/releases/download/v1.6.0-ac3.7/lampa-universal-1.6.0-ac3.7-macos-ac3.dmg)
 
-[![macOS Intel](.github/badges/macos-intel.svg)](https://github.com/ARST113/lampa-desktop/releases/download/v1.6.0-ac3.7/lampa-x64-1.6.0-ac3.7-macos-ac3.dmg) · [ZIP](https://github.com/ARST113/lampa-desktop/releases/download/v1.6.0-ac3.7/lampa-x64-1.6.0-ac3.7-macos-ac3.zip)
+[![macOS Intel](.github/badges/macos-intel.svg)](https://github.com/ARST113/lampa-desktop/releases/download/v1.6.0-ac3.7/lampa-x64-1.6.0-ac3.7-macos-ac3.dmg)
 
-[![macOS Apple Silicon](.github/badges/macos-arm64.svg)](https://github.com/ARST113/lampa-desktop/releases/download/v1.6.0-ac3.7/lampa-arm64-1.6.0-ac3.7-macos-ac3.dmg) · [ZIP](https://github.com/ARST113/lampa-desktop/releases/download/v1.6.0-ac3.7/lampa-arm64-1.6.0-ac3.7-macos-ac3.zip)
+[![macOS Apple Silicon](.github/badges/macos-arm64.svg)](https://github.com/ARST113/lampa-desktop/releases/download/v1.6.0-ac3.7/lampa-arm64-1.6.0-ac3.7-macos-ac3.dmg)
 
-Нажатие на графическую кнопку скачивает **DMG**; справа доступен **ZIP** той же версии.
+Каждая кнопка скачивает **DMG**. Для установки откройте DMG и перетащите **Lampa.app** в папку «Программы» (Applications). Архивы ZIP также доступны среди файлов [релиза ac3.7](https://github.com/ARST113/lampa-desktop/releases/tag/v1.6.0-ac3.7), но для обычной установки достаточно DMG.
 
 - **Universal:** Intel x64 и Apple Silicon ARM64 в одном приложении.
 - **Intel x64:** Mac с процессорами Intel.

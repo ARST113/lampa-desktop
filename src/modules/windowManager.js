@@ -237,7 +237,10 @@ function createWindow() {
 
   setupNavigationHandlers(mainWindow);
   const navigation = setupErrorHandler(mainWindow, {
-    onLoading: (url) => showRecoveryState("loading", url),
+    // Remember the loading state for an already-open recovery panel, but do
+    // not create or reveal that panel on a normal startup or server change.
+    // Only an actual connection/rendering failure should open the URL editor.
+    onLoading: (url) => setRecoveryState("loading", url),
     onDocumentLoaded: (url) => setRecoveryState("rendering", url),
     onReady: () => {
       if (!mainWindow.isDestroyed()) mainWindow.setProgressBar(-1);
@@ -249,8 +252,8 @@ function createWindow() {
   setupWindowOpenHandler(mainWindow);
   setupPluginHandler(mainWindow);
 
-  // Keep one local visible connection panel while remote Electron navigates
-  // in the background. Never replace the panel on failure or retry.
+  // Load the saved URL directly. The connection panel is created on failure
+  // only, or kept visible while retrying from a previous failed URL.
   navigation.open(store.get("lampaUrl", DEFAULT_LAMPA_URL));
   watchConfiguredUrl(mainWindow, navigation);
 

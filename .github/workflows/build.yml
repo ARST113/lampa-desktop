@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       publish_release:
-        description: Publish the verified installer to a GitHub prerelease
+        description: Publish verified packages as a stable GitHub release
         type: boolean
         default: true
   push:
@@ -12,6 +12,9 @@ on:
       - main
     tags:
       - "v*-ac3.*"
+  pull_request:
+    branches:
+      - main
 
 permissions:
   contents: write
@@ -50,7 +53,7 @@ jobs:
         run: node --test test/autoUpdater.test.cjs test/portablePaths.test.cjs test/pageNavigation.test.cjs test/branding.test.cjs test/subtitles.test.cjs test/matroska.test.cjs
 
       - name: Normalize JavaScript formatting for reproducible test execution
-        run: yarn exec prettier src/main.js src/modules/appLifecycle.js src/modules/portablePaths.js src/modules/startupDiagnostics.js src/modules/navigationFallback.js src/modules/windowManager.js src/recoveryPreload.js test/windows-fresh-portable.cjs test/portablePaths.test.cjs test/navigation-recovery-electron.cjs test/pageNavigation.test.cjs test/installed-windows-live.cjs --write
+        run: yarn exec prettier src/main.js src/modules/appLifecycle.js src/modules/portablePaths.js src/modules/startupDiagnostics.js src/modules/navigationFallback.js src/modules/windowManager.js src/recoveryPreload.js test/windows-fresh-portable.cjs test/portablePaths.test.cjs test/navigation-recovery-electron.cjs test/window-startup-electron.cjs test/pageNavigation.test.cjs test/installed-windows-live.cjs --write
 
       - name: Check changed file formatting
         run: yarn exec prettier package.json build/subtitle-tools.json scripts/verify-electron.cjs test/run-subtitle-integration.cjs .github/workflows/build.yml src/main.js src/modules/portablePaths.js src/modules/appLifecycle.js src/modules/startupDiagnostics.js src/modules/navigationFallback.js src/modules/pageNavigation.js src/modules/pluginHandler.js src/modules/ipcHandlers/windowHandlers.js src/modules/ipcHandlers/storeHandlers.js src/modules/ipcHandlers/settingsHandlers.js src/modules/torrServerManager.js src/modules/autoUpdater.js src/modules/windowManager.js src/modules/ipcHandlers/otherHandlers.js src/modules/ipcHandlers/subtitleHandlers.js src/modules/ipcHandlers/index.js src/modules/subtitleExtractor.js src/modules/matroskaSubtitles.js src/modules/subtitleStream.js src/modules/playerOptionsInterceptor.js src/modules/pluginHandler.js src/subtitleBridge.js src/preload.js src/plugin.js test/*.cjs README.md --check
@@ -176,8 +179,21 @@ jobs:
             dist/ac3.yml
             dist/SHASUMS256.txt
 
+      - name: Check whether this version is already released
+        id: release_check
+        if: github.event_name != 'pull_request'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = "${{ steps.verify.outputs.tag }}"
+          $releases = gh release list --repo "${{ github.repository }}" --json tagName --limit 100 | ConvertFrom-Json
+          if ($LASTEXITCODE -ne 0) { throw 'Failed to read existing GitHub releases.' }
+          $exists = @($releases | Where-Object { $_.tagName -eq $tag }).Count -gt 0
+          "exists=$($exists.ToString().ToLowerInvariant())" >> $env:GITHUB_OUTPUT
+
       - name: Publish stable Windows release
-        if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || inputs.publish_release
+        if: steps.release_check.outputs.exists == 'false' && ((github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))) || (github.event_name == 'workflow_dispatch' && inputs.publish_release))
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.verify.outputs.tag }}
@@ -194,11 +210,11 @@ jobs:
 
             ## Скачать Windows
 
-            [![Windows — установщик EXE](https://raw.githubusercontent.com/ARST113/lampa-desktop/main/.github/badges/windows-installer.svg)](https://github.com/ARST113/lampa-desktop/releases/download/${{ steps.verify.outputs.tag }}/lampa-x64-1.6.0-ac3.21.exe)
+            [![Windows — установщик EXE](https://raw.githubusercontent.com/ARST113/lampa-desktop/main/.github/badges/windows-installer.svg)](https://github.com/ARST113/lampa-desktop/releases/download/${{ steps.verify.outputs.tag }}/lampa-x64-1.6.0-ac3.22.exe)
 
-            [![Windows — Portable EXE](https://raw.githubusercontent.com/ARST113/lampa-desktop/main/.github/badges/windows-portable-exe.svg)](https://github.com/ARST113/lampa-desktop/releases/download/${{ steps.verify.outputs.tag }}/lampa-portable-x64-1.6.0-ac3.21.exe)
+            [![Windows — Portable EXE](https://raw.githubusercontent.com/ARST113/lampa-desktop/main/.github/badges/windows-portable-exe.svg)](https://github.com/ARST113/lampa-desktop/releases/download/${{ steps.verify.outputs.tag }}/lampa-portable-x64-1.6.0-ac3.22.exe)
 
-            [![Windows — Portable ZIP](https://raw.githubusercontent.com/ARST113/lampa-desktop/main/.github/badges/windows-portable-zip.svg)](https://github.com/ARST113/lampa-desktop/releases/download/${{ steps.verify.outputs.tag }}/lampa-portable-zip-x64-1.6.0-ac3.21.zip)
+            [![Windows — Portable ZIP](https://raw.githubusercontent.com/ARST113/lampa-desktop/main/.github/badges/windows-portable-zip.svg)](https://github.com/ARST113/lampa-desktop/releases/download/${{ steps.verify.outputs.tag }}/lampa-portable-zip-x64-1.6.0-ac3.22.zip)
 
             - **Установщик EXE:** обычная установка, автоматическое обновление.
             - **Portable EXE:** запуск без установки; хранит профиль в `LampaData` рядом с файлом.
@@ -206,7 +222,8 @@ jobs:
 
             ## Что исправлено
 
-            - Одна попытка загрузки каждого адреса; при ошибке — редактирование URL без перезапуска.
+            - Первый запуск напрямую открывает lampa.mx, а следующие запуски — сохранённый сервер без промежуточного окна.
+            - Экран исправления адреса появляется только после подтверждённой ошибки загрузки.
             - Отдельные состояния подключения и инициализации интерфейса.
             - HTTP 4xx/5xx и посторонние HTML-страницы больше не принимаются за запущенную Lampa.
             - Ошибки предыдущей навигации не прерывают новую попытку.

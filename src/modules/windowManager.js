@@ -229,6 +229,16 @@ function createWindow() {
     }
 
     mainWindow.show();
+    if (!mainWindow.isVisible()) {
+      const candidate = mainWindow;
+      for (const delay of [80, 200, 500]) {
+        setTimeout(() => {
+          if (!candidate.isDestroyed() && lampaReady && !candidate.isVisible()) {
+            candidate.show();
+          }
+        }, delay);
+      }
+    }
 
     if (process.platform === "darwin") {
       mainWindow.focus();
@@ -236,12 +246,31 @@ function createWindow() {
   };
 
   setupNavigationHandlers(mainWindow);
+  let lampaReady = false;
+  // A very fast document can finish its UI probe before Electron fires
+  // ready-to-show. Retry displaying only after a verified Lampa UI is ready.
+  mainWindow.on("ready-to-show", () => {
+    if (lampaReady) showReadyWindow();
+  });
   const navigation = setupErrorHandler(mainWindow, {
-    onLoading: (url) => showRecoveryState("loading", url),
+    // Preserve an existing recovery editor during retries, but do not open
+    // one for an ordinary startup or a switch to a healthy server.
+    onLoading: (url) => {
+      lampaReady = false;
+      setRecoveryState("loading", url);
+    },
     onDocumentLoaded: (url) => setRecoveryState("rendering", url),
     onReady: () => {
-      if (!mainWindow.isDestroyed()) mainWindow.setProgressBar(-1);
+      lampaReady = true;
+      // Showing the verified page must not depend on taskbar integration.
       showReadyWindow();
+      if (!mainWindow.isDestroyed()) {
+        try {
+          mainWindow.setProgressBar(-1);
+        } catch (error) {
+          console.warn("Не удалось сбросить индикатор загрузки:", error);
+        }
+      }
       closeRecoveryPanel();
     },
   });
@@ -249,8 +278,8 @@ function createWindow() {
   setupWindowOpenHandler(mainWindow);
   setupPluginHandler(mainWindow);
 
-  // Keep one local visible connection panel while remote Electron navigates
-  // in the background. Never replace the panel on failure or retry.
+  // Load the saved URL directly. The connection panel is created on failure
+  // only, or kept visible while retrying from a previous failed URL.
   navigation.open(store.get("lampaUrl", DEFAULT_LAMPA_URL));
   watchConfiguredUrl(mainWindow, navigation);
 

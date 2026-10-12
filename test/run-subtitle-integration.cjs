@@ -13,14 +13,21 @@ for (const script of [
   "subtitle-navigation-electron.cjs",
   "devtools-electron.cjs",
   "navigation-recovery-electron.cjs",
+  "window-startup-electron.cjs",
 ]) {
   const result = spawnSync(
     path.join(root, ".cache/electron-ac3-eac3/electron.exe"),
     [path.join(__dirname, script)],
     { env, windowsHide: true, encoding: "utf8", timeout: 70000 },
   );
-  if (result.status !== 0) {
-    console.error(result.error || result.stderr || result.stdout);
+  const incompleteStartupTest =
+    script === "window-startup-electron.cjs" &&
+    !result.stdout.includes("PASS: restart reuses saved server");
+  if (result.status !== 0 || incompleteStartupTest) {
+    console.error(
+      result.error ||
+        [result.stdout, result.stderr].filter(Boolean).join("\\n"),
+    );
     process.exitCode = 1;
     break;
   } else {

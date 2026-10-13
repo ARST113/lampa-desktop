@@ -5,6 +5,7 @@ const path = require("node:path");
 const fs = require("node:fs").promises;
 const { existsSync } = require("node:fs");
 const https = require("node:https");
+const { electronNetFetch } = require("./electronNetFetch");
 const { pipeline } = require("node:stream/promises");
 const { createWriteStream } = require("node:fs");
 const store = require("./storeManager");
@@ -110,7 +111,7 @@ class TorrServerManager {
   // Получение последней версии с GitHub
   async getLatestRelease() {
     try {
-      const response = await fetch(GITHUB_API, {
+      const response = await electronNetFetch(GITHUB_API, {
         headers: { "User-Agent": "Electron-App" },
       });
       const data = await response.json();
@@ -301,7 +302,7 @@ class TorrServerManager {
       const baseUrl = `http://localhost:${port}`;
 
       // Проверяем /gst/echo
-      const response = await fetch(`${baseUrl}/gst/echo`, {
+      const response = await electronNetFetch(`${baseUrl}/gst/echo`, {
         signal: AbortSignal.timeout(3000),
       });
 
@@ -318,11 +319,9 @@ class TorrServerManager {
       const data = await response.json();
 
       // Проверяем, что все компоненты работают
-      const allWorks =
-        data.gst_discoverer?.works &&
-        data.gstreamer?.works;
-        // data.hdr_tone_mapping?.works &&
-        // data.embedded_runtime?.works;
+      const allWorks = data.gst_discoverer?.works && data.gstreamer?.works;
+      // data.hdr_tone_mapping?.works &&
+      // data.embedded_runtime?.works;
 
       this.gstSupport = allWorks;
 
@@ -341,7 +340,7 @@ class TorrServerManager {
   // Получение версии TorrServer
   async getVersion(port = 8090) {
     try {
-      const response = await fetch(`http://localhost:${port}/echo`, {
+      const response = await electronNetFetch(`http://localhost:${port}/echo`, {
         signal: AbortSignal.timeout(3000),
       });
 

@@ -1,4 +1,5 @@
 const { ipcMain } = require("electron");
+const { electronNetFetch } = require("../electronNetFetch");
 const {
   generatePin,
   encryptJson,
@@ -104,11 +105,14 @@ async function uploadJson(jsonData, pin) {
   const pinStr = String(pin).padStart(4, "0");
   const encrypted = encryptJson(jsonData, pinStr);
 
-  const response = await fetch("https://lampa.kolovatoff.ru/ei/upload", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ data: encrypted }),
-  });
+  const response = await electronNetFetch(
+    "https://lampa.kolovatoff.ru/ei/upload",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ data: encrypted }),
+    },
+  );
 
   const result = await response.json();
   console.log("Upload result:", result);
@@ -118,7 +122,7 @@ async function uploadJson(jsonData, pin) {
 async function downloadJson(fileId, pin) {
   const pinStr = String(pin).padStart(4, "0");
 
-  const response = await fetch(
+  const response = await electronNetFetch(
     `https://lampa.kolovatoff.ru/ei/download?id=${fileId}`,
   );
   const result = await response.json();

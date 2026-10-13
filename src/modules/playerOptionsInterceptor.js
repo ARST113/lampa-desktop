@@ -1,6 +1,7 @@
 // modules/playerOptionsInterceptor.js
-const { protocol, net } = require("electron");
+const { protocol } = require("electron");
 const { stream } = require("./subtitleStream");
+const { electronNetFetch } = require("./electronNetFetch");
 
 class PlayerOptionsInterceptor {
   constructor() {
@@ -12,9 +13,7 @@ class PlayerOptionsInterceptor {
    */
   initialize() {
     if (this.isInitialized) return;
-    const forward = (request, options = {}) =>
-      net.fetch(request, { ...options, bypassCustomProtocolHandlers: true });
-    stream.fetchRange = forward;
+    stream.fetchRange = electronNetFetch;
 
     const handle = async (request) => {
       const url = new URL(request.url);
@@ -40,7 +39,7 @@ class PlayerOptionsInterceptor {
         });
       }
 
-      return stream.observe(request, await forward(request));
+      return stream.observe(request, await electronNetFetch(request));
     };
     protocol.handle("http", handle);
     protocol.handle("https", handle);

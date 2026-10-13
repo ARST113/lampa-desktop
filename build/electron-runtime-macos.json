@@ -1,0 +1,23 @@
+{
+  "x64": {
+    "tag": "v44.4.4-macos-x64-ac3-eac3-r7a1",
+    "runtime": "electron-v44.4.4-darwin-x64-ac3-eac3.zip",
+    "runtimeSha256": "702a1337f9f307d40358075ae7f43542337a4339b251437457cf4222e8ea1232",
+    "subtitleSource": "lampa-x64-1.6.0-ac3.7-macos-ac3.zip",
+    "subtitleSourceSha256": "afd65691c4bf50c0c60bf00fe5837afb92836f45b0b5ea761ccd79f3884248f8"
+  },
+  "arm64": {
+    "tag": "v44.4.4-macos-arm64-ac3-eac3-r4a1",
+    "runtime": "electron-v44.4.4-darwin-arm64-ac3-eac3.zip",
+    "runtimeSha256": "b2bb5e3bdc0dbcc1806476e9e8affc2a6c5dd56a43bc2b76811605942978f87b",
+    "subtitleSource": "lampa-arm64-1.6.0-ac3.7-macos-ac3.zip",
+    "subtitleSourceSha256": "d5d071835302e87ac93c0a97b9c7981a4ce6865db1a81279a73ba89f9972f677"
+  },
+  "universal": {
+    "tag": "v44.4.4-macos-universal-ac3-eac3-r4a1",
+    "runtime": "electron-v44.4.4-darwin-universal-ac3-eac3.zip",
+    "runtimeSha256": "07e6095c7ec5b0f21824c7ca0d4d75ba587fe7fefee67491e3ca5370343076a0",
+    "subtitleSource": "lampa-universal-1.6.0-ac3.7-macos-ac3.zip",
+    "subtitleSourceSha256": "c8877d7b9e8af341a8e736498d08bac62b628e3c77e0616b7e4538a3cc3dea15"
+  }
+}

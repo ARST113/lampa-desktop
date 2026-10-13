@@ -1,29 +1,58 @@
-name: Build Lampa Windows x64 AC3-EAC3
+name: Build Lampa macOS AC3-EAC3
 
 on:
   workflow_dispatch:
     inputs:
       publish_release:
-        description: Publish the verified installer to a GitHub prerelease
+        description: Publish verified DMG and ZIP files to the shared release
         type: boolean
         default: true
-  push:
-    tags:
-      - "v*-ac3.*"
+      release_tag:
+        description: Existing shared Lampa release
+        type: string
+        default: v1.6.0-ac3.24
 
 permissions:
   contents: write
 
 concurrency:
-  group: lampa-windows-ac3-eac3
+  group: lampa-macos-ac3-eac3
   cancel-in-progress: false
 
 jobs:
-  build-windows:
-    runs-on: windows-latest
-    timeout-minutes: 45
+  build-macos:
+    name: macOS ${{ matrix.arch }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x64
+            runner: macos-15-intel
+            builder_arch: x64
+            native_arch: x64
+            app_dir: mac
+          - arch: arm64
+            runner: macos-15
+            builder_arch: arm64
+            native_arch: arm64
+            app_dir: mac-arm64
+          - arch: universal
+            runner: macos-15
+            builder_arch: x64
+            native_arch: arm64
+            app_dir: mac
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: bash
     env:
       ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
+      ELECTRON_OVERRIDE_DIST_PATH: ${{ github.workspace }}/.cache/electron-macos-${{ matrix.arch }}
+      CSC_IDENTITY_AUTO_DISCOVERY: "false"
+      CSC_FOR_PULL_REQUEST: "true"
+      GH_TOKEN: ${{ github.token }}
+
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -33,108 +62,75 @@ jobs:
         with:
           node-version: "24"
 
-      - name: Install pinned Yarn
+      - name: Install pinned Yarn and dependencies
         run: |
           corepack enable
           corepack prepare yarn@4.9.4 --activate
+          yarn install --immutable
 
-      - name: Install dependencies
-        run: yarn install --immutable
-
-      - name: Check application JavaScript
-        run: yarn exec eslint src scripts/verify-electron.cjs
-
-      - name: Test application updates and subtitles
-        run: node --test test/autoUpdater.test.cjs test/subtitles.test.cjs test/matroska.test.cjs
-
-      - name: Check changed file formatting
-        run: yarn exec prettier package.json build/subtitle-tools.json scripts/verify-electron.cjs .github/workflows/build.yml src/modules/autoUpdater.js src/modules/windowManager.js src/modules/ipcHandlers/otherHandlers.js src/modules/ipcHandlers/subtitleHandlers.js src/modules/ipcHandlers/index.js src/modules/subtitleExtractor.js src/modules/matroskaSubtitles.js src/modules/subtitleStream.js src/modules/playerOptionsInterceptor.js src/modules/pluginHandler.js src/subtitleBridge.js src/preload.js src/plugin.js test/*.cjs README.md --check
-
-      - name: Download and verify custom Electron
-        shell: pwsh
-        run: ./scripts/prepare-electron.ps1
-
-      - name: Prepare verified subtitle extraction tool
-        shell: pwsh
-        run: ./scripts/prepare-subtitle-tools.ps1
-
-      - name: Test real subtitle playback and seeking
-        run: node test/run-subtitle-integration.cjs
-
-      - name: Package Windows x64 installer
-        run: yarn build-win
-
-      - name: Verify packaged runtime and installer
-        id: verify
-        shell: pwsh
+      - name: Verify JavaScript and unit tests
         run: |
-          node scripts/verify-electron.cjs dist/win-unpacked/Lampa.exe dist/win-unpacked/ffmpeg.dll
-          if ($LASTEXITCODE -ne 0) { throw 'Packaged runtime verification failed.' }
-          if (!(Test-Path -LiteralPath 'dist/win-unpacked/resources/app.asar')) { throw 'Missing packaged application.' }
-          $subtitleTools = Get-Content build/subtitle-tools.json -Raw | ConvertFrom-Json
-          $subtitleHash = (Get-FileHash -LiteralPath 'dist/win-unpacked/resources/subtitle-tools/ffmpeg.exe' -Algorithm SHA256).Hash
-          if ($subtitleHash -ne $subtitleTools.executableSha256) { throw 'Packaged subtitle tool checksum mismatch.' }
-          $probeHash = (Get-FileHash -LiteralPath 'dist/win-unpacked/resources/subtitle-tools/ffprobe.exe' -Algorithm SHA256).Hash
-          if ($probeHash -ne $subtitleTools.probeSha256) { throw 'Packaged subtitle probe checksum mismatch.' }
-          foreach ($notice in $subtitleTools.notices) {
-            $noticeHash = (Get-FileHash -LiteralPath (Join-Path 'dist/win-unpacked/resources/subtitle-tools' $notice.file) -Algorithm SHA256).Hash
-            if ($noticeHash -ne $notice.sha256) { throw 'Packaged subtitle notice checksum mismatch.' }
-          }
-          $package = Get-Content package.json -Raw | ConvertFrom-Json
-          $tag = "v$($package.version)"
-          if ($env:GITHUB_REF_TYPE -eq 'tag' -and $env:GITHUB_REF_NAME -ne $tag) { throw 'Tag and package version differ.' }
-          $installer = Get-Item -LiteralPath "dist/lampa-x64-$($package.version).exe"
-          if ($installer.Length -lt 10MB) { throw 'Installer is unexpectedly small.' }
-          "tag=$tag" >> $env:GITHUB_OUTPUT
-          Get-ChildItem -Path dist/*.exe,dist/*.blockmap,dist/ac3.yml | ForEach-Object {
-            $hash = (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
-            "$hash  $($_.Name)"
-          } | Set-Content -LiteralPath dist/SHASUMS256.txt -Encoding utf8
+          yarn exec eslint src scripts/prepare-macos.cjs scripts/verify-macos-package.cjs test/torrserver-cancellation-electron.cjs test/undici-electron-net.cjs
+          node --test test/*.test.cjs
+          yarn exec prettier package.json build/electron-runtime-macos.json scripts/prepare-macos.cjs scripts/verify-macos-package.cjs .github/workflows/build.yml src/modules/electronNetFetch.js src/modules/playerOptionsInterceptor.js src/modules/subtitleStream.js src/modules/torrServerManager.js src/modules/ipcHandlers/cloudHandlers.js test/torrserver-cancellation-electron.cjs test/undici-electron-net.cjs --check
 
-      - name: Upload installer artifact
+      - name: Download and verify existing custom runtime and subtitle tools
+        run: node scripts/prepare-macos.cjs "${{ matrix.arch }}"
+
+      - name: Test real Electron network requests on the native architecture
+        run: |
+          test "$(node -p process.arch)" = "${{ matrix.native_arch }}"
+          runtime="$PWD/.cache/electron-macos-${{ matrix.arch }}/Electron.app/Contents/MacOS/Electron"
+          "$runtime" test/undici-electron-net.cjs 2>&1 | tee ".cache/undici-electron-net-${{ matrix.arch }}.log"
+          "$runtime" test/torrserver-cancellation-electron.cjs 2>&1 | tee ".cache/torrserver-cancellation-${{ matrix.arch }}.log"
+
+      - name: Package and sign the application bundle
+        run: |
+          yarn exec electron-builder --mac --${{ matrix.builder_arch }} --dir --publish=never --config .cache/electron-builder-macos.json
+          node scripts/verify-macos-package.cjs sign "${{ matrix.arch }}"
+
+      - name: Create DMG and ZIP from the verified signed bundle
+        run: |
+          yarn exec electron-builder --mac --${{ matrix.builder_arch }} --prepackaged "$PWD/dist/${{ matrix.app_dir }}/Lampa.app" --publish=never --config .cache/electron-builder-macos.json
+
+      - name: Verify distributable application and checksums
+        run: |
+          set -euo pipefail
+          arch="${{ matrix.arch }}"
+          version="$(node -p 'require("./package.json").version')"
+          prefix="lampa-$arch-$version-macos-ac3"
+          node scripts/verify-macos-package.cjs verify "$arch"
+          test -s "dist/$prefix.dmg"
+          test -s "dist/$prefix.zip"
+          zip_hash="$(unzip -p "dist/$prefix.zip" Lampa.app/Contents/Resources/app.asar | shasum -a 256 | cut -d ' ' -f 1)"
+          app_hash="$(shasum -a 256 "dist/${{ matrix.app_dir }}/Lampa.app/Contents/Resources/app.asar" | cut -d ' ' -f 1)"
+          test "$zip_hash" = "$app_hash"
+          mountpoint="$(mktemp -d)"
+          hdiutil attach -nobrowse -readonly -mountpoint "$mountpoint" "dist/$prefix.dmg"
+          trap 'hdiutil detach "$mountpoint" >/dev/null 2>&1 || true' EXIT
+          node scripts/verify-macos-package.cjs verify "$arch" "$mountpoint/Lampa.app"
+          hdiutil detach "$mountpoint"
+          trap - EXIT
+          rmdir "$mountpoint"
+          (cd dist && shasum -a 256 "$prefix.dmg" "$prefix.zip" > "SHASUMS256-macos-$arch.txt")
+
+      - name: Upload verified macOS files and regression evidence
         uses: actions/upload-artifact@v6
         with:
-          name: lampa-windows-x64-ac3-eac3
+          name: lampa-macos-${{ matrix.arch }}-ac3-eac3
           if-no-files-found: error
+          compression-level: 0
           path: |
-            dist/*.exe
-            dist/*.blockmap
-            dist/ac3.yml
-            dist/SHASUMS256.txt
+            dist/*.dmg
+            dist/*.zip
+            dist/SHASUMS256-macos-*.txt
+            .cache/macos-*-provenance.json
+            .cache/torrserver-cancellation-*.log
+            .cache/undici-electron-net-*.log
 
-      - name: Publish verified installer
-        if: github.event_name == 'push' || inputs.publish_release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ steps.verify.outputs.tag }}
-          target_commitish: ${{ github.sha }}
-          name: Lampa ${{ steps.verify.outputs.tag }} — Windows x64 AC3/EAC3
-          prerelease: true
-          fail_on_unmatched_files: true
-          body: |
-            Windows x64 build of Lampa Desktop using custom Electron 44.4.4 with AC3/EAC3 build flags.
-
-            Enables embedded audio-track switching in the internal player, including torrents played through TorrServer.
-            Adds App settings → Check for updates, with background downloads and installation after confirmation.
-
-            New in ac3.7: fixes subtitles disappearing when Lampa changes its in-page history/hash route while playback continues.
-            The subtitle subscription now stays active until the player closes or the document actually changes.
-            Reads embedded text subtitle packets directly from the MKV bytes already fetched by the video player.
-            Already buffered languages switch immediately without launching FFmpeg or a second media download.
-            On a seek into a long caption, uses the MKV subtitle index for a bounded byte-range lookup. Files without a subtitle index resume captions from the next received packet.
-            Opens developer tools with F12, Ctrl+Shift+I, or App settings → Open console.
-            Supports embedded MKV text subtitles (SRT, ASS/SSA, WebVTT) in the internal player through TorrServer, including compatibility with Lampac Tracks menus.
-            Discovers subtitle tracks from the MKV header, independently of TorrServer FFprobe metadata.
-            Supports language switching, seeking and disabling subtitles. Video and audio are not transcoded.
-            Graphical PGS/VobSub tracks are unsupported by this reader; complex ASS styling is converted to WebVTT text.
-
-            Based on Kolovatoff/lampa-desktop. Updates for this build use ARST113/lampa-desktop.
-            Runtime: https://github.com/ARST113/electron/releases/tag/v44.4.4-ac3-eac3
-            The build verifies the ZIP checksum, packaged Electron version and unchanged custom ffmpeg.dll.
-
-            Download the `.exe` installer below. SHA-256 checksums are in SHASUMS256.txt.
-          files: |
-            dist/*.exe
-            dist/*.blockmap
-            dist/ac3.yml
-            dist/SHASUMS256.txt
+      - name: Publish verified macOS files to the shared release
+        if: inputs.publish_release
+        run: |
+          tag="${{ inputs.release_tag }}"
+          gh release view "$tag" --repo ARST113/lampa-desktop
+          gh release upload "$tag" --repo ARST113/lampa-desktop dist/*.dmg dist/*.zip dist/SHASUMS256-macos-*.txt

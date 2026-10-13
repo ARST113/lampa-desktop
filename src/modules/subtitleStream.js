@@ -1,4 +1,5 @@
 const { MatroskaReader, createState, header } = require("./matroskaSubtitles");
+const { electronNetFetch } = require("./electronNetFetch");
 const MAX_CUES = 20000;
 const MAX_BYTES = 4 * 1024 * 1024;
 const publicTracks = (tracks) =>
@@ -14,7 +15,7 @@ class SubtitleStream {
   constructor() {
     this.media = new Map();
     this.serial = 0;
-    this.fetchRange = fetch;
+    this.fetchRange = electronNetFetch;
   }
   get(url) {
     let media = this.media.get(url);

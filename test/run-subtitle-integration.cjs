@@ -9,6 +9,7 @@ execFileSync(
 const env = { ...process.env };
 delete env.ELECTRON_RUN_AS_NODE;
 for (const script of [
+  "undici-electron-net.cjs",
   "subtitles-electron.cjs",
   "subtitle-navigation-electron.cjs",
   "devtools-electron.cjs",

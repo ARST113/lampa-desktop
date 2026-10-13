@@ -126,13 +126,18 @@ jobs:
           gh release view "$TARGET_TAG" --repo "$GITHUB_REPOSITORY" \
             --json body --jq '.body' > original-release-notes.md
 
-          # Replace the generated platform index on reruns without losing
-          # the hand-written Windows changelog or provenance information.
+          # Replace the generated matrix on reruns and remove the legacy
+          # Windows-only header/downloads block. Keep the changelog itself.
           awk '
             /^<!-- platform-matrix:start -->$/ {skip=1; next}
             /^<!-- platform-matrix:end -->$/   {skip=0; next}
             !skip {print}
           ' original-release-notes.md > existing-release-notes.md
+          awk '
+            /^# Lampa Desktop — Windows$/ {legacy=1; next}
+            legacy && /^## Что исправлено$/ {legacy=0; print; next}
+            !legacy {print}
+          ' existing-release-notes.md > clean-release-notes.md
 
           cat > platform-index.md <<'MARKDOWN'
           <!-- platform-matrix:start -->
@@ -146,6 +151,10 @@ jobs:
           [![Windows Installer](https://raw.githubusercontent.com/ARST113/lampa-desktop/main/.github/badges/windows-installer.svg)](https://github.com/ARST113/lampa-desktop/releases/download/__TAG__/lampa-x64-__VERSION__.exe)
           [![Windows Portable EXE](https://raw.githubusercontent.com/ARST113/lampa-desktop/main/.github/badges/windows-portable-exe.svg)](https://github.com/ARST113/lampa-desktop/releases/download/__TAG__/lampa-portable-x64-__VERSION__.exe)
           [![Windows Portable ZIP](https://raw.githubusercontent.com/ARST113/lampa-desktop/main/.github/badges/windows-portable-zip.svg)](https://github.com/ARST113/lampa-desktop/releases/download/__TAG__/lampa-portable-zip-x64-__VERSION__.zip)
+
+          - **Установщик EXE:** обычная установка с автообновлением.
+          - **Portable EXE:** запуск без установки; профиль сохраняется в папке `LampaData` рядом с файлом.
+          - **Portable ZIP:** распакуйте архив и запустите `Lampa.exe` без предварительной NSIS-распаковки.
 
           ### macOS — 1.6.0-ac3.7
 
@@ -171,7 +180,7 @@ jobs:
           MARKDOWN
 
           sed -i -e "s/__TAG__/$TARGET_TAG/g" -e "s/__VERSION__/$version/g" platform-index.md
-          cat platform-index.md existing-release-notes.md > unified-release-notes.md
+          cat platform-index.md clean-release-notes.md > unified-release-notes.md
           gh release edit "$TARGET_TAG" --repo "$GITHUB_REPOSITORY" \
             --title "Lampa Desktop $version — Windows / macOS / Linux" \
             --notes-file unified-release-notes.md --latest

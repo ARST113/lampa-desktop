@@ -4,7 +4,7 @@
 
 ## Скачать Lampa Desktop
 
-**Все доступные сборки находятся в одном разделе.** Windows — актуальный выпуск **1.6.0-ac3.22**; Linux и macOS — ранее опубликованный **1.6.0-ac3.7**. Кнопки открывают прямую загрузку нужного файла.
+**[Единый релиз — скачать для Windows, Linux и macOS](https://github.com/ARST113/lampa-desktop/releases/tag/v1.6.0-ac3.22).** Windows — текущая версия **1.6.0-ac3.22**. Сборки Linux и macOS имеют версию **1.6.0-ac3.7** и включены в тот же релиз для удобной загрузки. Все кнопки ведут на файлы единого релиза; номера версий в названиях сохранены.
 
 ### Windows x64 — 1.6.0-ac3.22
 
@@ -20,31 +20,31 @@
 
 ### Linux — 1.6.0-ac3.7
 
-[![Linux x86_64](.github/badges/linux-x64.svg)](https://github.com/ARST113/lampa-desktop/releases/download/v1.6.0-ac3.7/lampa-x86_64-1.6.0-ac3.7-linux-ac3.rpm)
-[![Linux ARM64](.github/badges/linux-arm64.svg)](https://github.com/ARST113/lampa-desktop/releases/download/v1.6.0-ac3.7/lampa-aarch64-1.6.0-ac3.7-linux-ac3.rpm)
+[![Linux x86_64](.github/badges/linux-x64.svg)](https://github.com/ARST113/lampa-desktop/releases/download/v1.6.0-ac3.22/lampa-x86_64-1.6.0-ac3.7-linux-ac3.rpm)
+[![Linux ARM64](.github/badges/linux-arm64.svg)](https://github.com/ARST113/lampa-desktop/releases/download/v1.6.0-ac3.22/lampa-aarch64-1.6.0-ac3.7-linux-ac3.rpm)
 
 - **x86_64 / AMD64:** RPM для 64-битных процессоров Intel и AMD.
 - **ARM64 / aarch64:** RPM для 64-битных ARM.
 
-**32-битной Linux-сборки x86/i386 нет.** Linux x86_64 — тоже 64-битная версия. Оба пакета относятся к архивному релизу ac3.7; Linux ac3.22 не выпускался.
+**32-битной Linux-сборки x86/i386 нет.** Linux x86_64 — тоже 64-битная версия. Оба пакета собраны из версии ac3.7 и размещены также в едином релизе ac3.22 для удобства. Linux с исходным кодом версии ac3.22 пока не собирался.
 
 ### macOS — 1.6.0-ac3.7
 
-[![macOS Universal](.github/badges/macos-universal.svg)](https://github.com/ARST113/lampa-desktop/releases/download/v1.6.0-ac3.7/lampa-universal-1.6.0-ac3.7-macos-ac3.dmg)
+[![macOS Universal](.github/badges/macos-universal.svg)](https://github.com/ARST113/lampa-desktop/releases/download/v1.6.0-ac3.22/lampa-universal-1.6.0-ac3.7-macos-ac3.dmg) · [ZIP для Universal](https://github.com/ARST113/lampa-desktop/releases/download/v1.6.0-ac3.22/lampa-universal-1.6.0-ac3.7-macos-ac3.zip)
 
-[![macOS Intel](.github/badges/macos-intel.svg)](https://github.com/ARST113/lampa-desktop/releases/download/v1.6.0-ac3.7/lampa-x64-1.6.0-ac3.7-macos-ac3.dmg)
+[![macOS Intel](.github/badges/macos-intel.svg)](https://github.com/ARST113/lampa-desktop/releases/download/v1.6.0-ac3.22/lampa-x64-1.6.0-ac3.7-macos-ac3.dmg) · [ZIP для Intel](https://github.com/ARST113/lampa-desktop/releases/download/v1.6.0-ac3.22/lampa-x64-1.6.0-ac3.7-macos-ac3.zip)
 
-[![macOS Apple Silicon](.github/badges/macos-arm64.svg)](https://github.com/ARST113/lampa-desktop/releases/download/v1.6.0-ac3.7/lampa-arm64-1.6.0-ac3.7-macos-ac3.dmg)
+[![macOS Apple Silicon](.github/badges/macos-arm64.svg)](https://github.com/ARST113/lampa-desktop/releases/download/v1.6.0-ac3.22/lampa-arm64-1.6.0-ac3.7-macos-ac3.dmg) · [ZIP для Apple Silicon](https://github.com/ARST113/lampa-desktop/releases/download/v1.6.0-ac3.22/lampa-arm64-1.6.0-ac3.7-macos-ac3.zip)
 
-Каждая кнопка скачивает **DMG**. Для установки откройте DMG и перетащите **Lampa.app** в папку «Программы» (Applications). Архивы ZIP также доступны среди файлов [релиза ac3.7](https://github.com/ARST113/lampa-desktop/releases/tag/v1.6.0-ac3.7), но для обычной установки достаточно DMG.
+Каждая кнопка скачивает **DMG**. Для установки откройте DMG и перетащите **Lampa.app** в папку «Программы» (Applications). Архивы ZIP для всех трёх архитектур также находятся в [едином релизе ac3.22](https://github.com/ARST113/lampa-desktop/releases/tag/v1.6.0-ac3.22), но для обычной установки достаточно DMG.
 
 - **Universal:** Intel x64 и Apple Silicon ARM64 в одном приложении.
 - **Intel x64:** Mac с процессорами Intel.
 - **Apple Silicon ARM64:** Mac на процессорах серии M (M1 и новее).
 
-Требуется **macOS 13 Ventura или новее**. Это архивные версии ac3.7; macOS ac3.22 не выпускался. Из-за отсутствия нотарификации Apple для первого запуска может потребоваться команда **Открыть** в контекстном меню Finder.
+Требуется **macOS 13 Ventura или новее**. Это сборки исходного кода версии ac3.7, доступные непосредственно в едином релизе ac3.22; macOS с исходным кодом версии ac3.22 пока не собирался. Из-за отсутствия нотарификации Apple для первого запуска может потребоваться команда **Открыть** в контекстном меню Finder.
 
-**[Последний релиз Windows](https://github.com/ARST113/lampa-desktop/releases/latest)** · **[Все релизы](https://github.com/ARST113/lampa-desktop/releases)** · **[SHA-256 Windows ac3.22](https://github.com/ARST113/lampa-desktop/releases/download/v1.6.0-ac3.22/SHASUMS256.txt)**
+**[Последний объединённый релиз](https://github.com/ARST113/lampa-desktop/releases/latest)** · **[Все релизы](https://github.com/ARST113/lampa-desktop/releases)** · **[SHA-256 Windows ac3.22](https://github.com/ARST113/lampa-desktop/releases/download/v1.6.0-ac3.22/SHASUMS256.txt)**
 
 ---
 
@@ -68,7 +68,7 @@
 
 Для сборки Windows требуются Windows x64, Node.js 24 и Yarn 4.9.4. Запустите yarn install --immutable, затем scripts/prepare-electron.ps1 и scripts/prepare-subtitle-tools.ps1, после чего yarn build-win. Для проверки готового файла используйте scripts/verify-electron.cjs.
 
-Ранее подготовленные сборки macOS находятся в релизе ac3.7; их исходная ветка — macos/ac3-eac3. Новые Linux и macOS версии в релизе ac3.22 не собирались.
+Сборки macOS и Linux ac3.7 продублированы в объединённый релиз ac3.22 без пересборки; исходная ветка macOS — macos/ac3-eac3. Современные Windows-исправления ac3.22 не входят в старые сборки для других платформ.
 
 ## Авторство и лицензия
 

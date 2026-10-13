@@ -1,0 +1,176 @@
+name: Consolidate Lampa Desktop releases
+
+# After successful Windows releases, mirror last verified macOS/Linux packages
+# to the same release page. Their original app versions remain in filenames.
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/consolidate-releases.yml"
+  workflow_run:
+    workflows: ["Build Lampa Windows x64 AC3-EAC3"]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      target_release:
+        description: "Existing stable release tag (leave blank for latest)"
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+
+concurrency:
+  group: lampa-release-platform-consolidation
+  cancel-in-progress: false
+
+jobs:
+  consolidate:
+    if: >-
+      github.event_name != 'workflow_run' ||
+      (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main')
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      GH_TOKEN: ${{ github.token }}
+      SOURCE_TAG: v1.6.0-ac3.7
+      REQUESTED_TARGET: ${{ inputs.target_release }}
+    steps:
+      - name: Resolve target and verify the original release
+        id: release
+        shell: bash
+        run: |
+          set -euo pipefail
+          target="${REQUESTED_TARGET:-}"
+          if [[ -z "$target" ]]; then
+            target="$(gh api "repos/$GITHUB_REPOSITORY/releases/latest" --jq '.tag_name')"
+          fi
+          [[ -n "$target" ]] || { echo "No stable release found"; exit 1; }
+          gh release view "$target" --repo "$GITHUB_REPOSITORY" > /dev/null
+          echo "tag=$target" >> "$GITHUB_OUTPUT"
+          echo "Target: $target" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Download only missing macOS and Linux packages and verify SHA-256
+        shell: bash
+        env:
+          TARGET_TAG: ${{ steps.release.outputs.tag }}
+        run: |
+          set -euo pipefail
+          mkdir -p source-check staging
+          gh release download "$SOURCE_TAG" --repo "$GITHUB_REPOSITORY" \
+            --pattern 'SHASUMS256.txt' --dir source-check
+          gh release view "$TARGET_TAG" --repo "$GITHUB_REPOSITORY" \
+            --json assets --jq '.assets[].name' > target-assets.txt
+
+          packages=(
+            lampa-x86_64-1.6.0-ac3.7-linux-ac3.rpm
+            lampa-aarch64-1.6.0-ac3.7-linux-ac3.rpm
+            lampa-universal-1.6.0-ac3.7-macos-ac3.dmg
+            lampa-universal-1.6.0-ac3.7-macos-ac3.zip
+            lampa-x64-1.6.0-ac3.7-macos-ac3.dmg
+            lampa-x64-1.6.0-ac3.7-macos-ac3.zip
+            lampa-arm64-1.6.0-ac3.7-macos-ac3.dmg
+            lampa-arm64-1.6.0-ac3.7-macos-ac3.zip
+          )
+
+          for package in "${packages[@]}"; do
+            expected="$(awk -v name="$package" '$2 == name {print $1}' source-check/SHASUMS256.txt | tr -d '\r')"
+            [[ "$expected" =~ ^[a-fA-F0-9]{64}$ ]] || {
+              echo "Missing or invalid source checksum for $package"; exit 1;
+            }
+            if grep -Fxq "$package" target-assets.txt; then
+              echo "Already present: $package"
+              continue
+            fi
+
+            gh release download "$SOURCE_TAG" --repo "$GITHUB_REPOSITORY" \
+              --pattern "$package" --dir staging
+            echo "$expected  staging/$package" | sha256sum -c -
+            gh release upload "$TARGET_TAG" "staging/$package" --repo "$GITHUB_REPOSITORY"
+            echo "Copied verified: $package" >> "$GITHUB_STEP_SUMMARY"
+          done
+
+          # Do not change Windows installer, portable binaries, update channel,
+          # .blockmap, or ac3.yml. Only extend the existing checksum manifest.
+          mkdir -p target-check
+          gh release download "$TARGET_TAG" --repo "$GITHUB_REPOSITORY" \
+            --pattern 'SHASUMS256.txt' --dir target-check
+          cp target-check/SHASUMS256.txt merged-sha256.txt
+          for package in "${packages[@]}"; do
+            expected="$(awk -v name="$package" '$2 == name {print $1}' source-check/SHASUMS256.txt | tr -d '\r')"
+            awk -v name="$package" '$2 != name' merged-sha256.txt > merged-sha256.tmp
+            mv merged-sha256.tmp merged-sha256.txt
+            printf '%s  %s\n' "$expected" "$package" >> merged-sha256.txt
+          done
+          LC_ALL=C sort -k2 merged-sha256.txt > staging/SHASUMS256.txt
+          gh release upload "$TARGET_TAG" staging/SHASUMS256.txt \
+            --clobber --repo "$GITHUB_REPOSITORY"
+
+          gh release view "$TARGET_TAG" --repo "$GITHUB_REPOSITORY" \
+            --json assets --jq '.assets[].name' > target-assets.txt
+          for package in "${packages[@]}"; do
+            grep -Fxq "$package" target-assets.txt || {
+              echo "Missing uploaded asset: $package"; exit 1;
+            }
+          done
+
+      - name: Put downloads for all platforms at the top of release notes
+        shell: bash
+        env:
+          TARGET_TAG: ${{ steps.release.outputs.tag }}
+        run: |
+          set -euo pipefail
+          version="${TARGET_TAG#v}"
+          gh release view "$TARGET_TAG" --repo "$GITHUB_REPOSITORY" \
+            --json body --jq '.body' > original-release-notes.md
+
+          # Replace the generated platform index on reruns without losing
+          # the hand-written Windows changelog or provenance information.
+          awk '
+            /^<!-- platform-matrix:start -->$/ {skip=1; next}
+            /^<!-- platform-matrix:end -->$/   {skip=0; next}
+            !skip {print}
+          ' original-release-notes.md > existing-release-notes.md
+
+          cat > platform-index.md <<'MARKDOWN'
+          <!-- platform-matrix:start -->
+          # Lampa Desktop — скачать для всех платформ
+
+          **Все готовые приложения собраны на одной странице релиза.**
+          Windows — версия **__VERSION__**; Linux и macOS — проверенные сборки **1.6.0-ac3.7**, перенесённые без пересборки. Исправления Windows после ac3.7 в старых сборках для других платформ отсутствуют.
+
+          ### Windows x64 — __VERSION__
+
+          [![Windows Installer](https://raw.githubusercontent.com/ARST113/lampa-desktop/main/.github/badges/windows-installer.svg)](https://github.com/ARST113/lampa-desktop/releases/download/__TAG__/lampa-x64-__VERSION__.exe)
+          [![Windows Portable EXE](https://raw.githubusercontent.com/ARST113/lampa-desktop/main/.github/badges/windows-portable-exe.svg)](https://github.com/ARST113/lampa-desktop/releases/download/__TAG__/lampa-portable-x64-__VERSION__.exe)
+          [![Windows Portable ZIP](https://raw.githubusercontent.com/ARST113/lampa-desktop/main/.github/badges/windows-portable-zip.svg)](https://github.com/ARST113/lampa-desktop/releases/download/__TAG__/lampa-portable-zip-x64-__VERSION__.zip)
+
+          ### macOS — 1.6.0-ac3.7
+
+          | Архитектура | Установочный образ | Архив приложения |
+          | --- | --- | --- |
+          | ![Apple](https://img.shields.io/badge/Apple-000000?logo=apple&logoColor=white) Universal (Intel + Apple Silicon) | [DMG](https://github.com/ARST113/lampa-desktop/releases/download/__TAG__/lampa-universal-1.6.0-ac3.7-macos-ac3.dmg) | [ZIP](https://github.com/ARST113/lampa-desktop/releases/download/__TAG__/lampa-universal-1.6.0-ac3.7-macos-ac3.zip) |
+          | ![Apple](https://img.shields.io/badge/Apple-000000?logo=apple&logoColor=white) Apple Silicon ARM64 | [DMG](https://github.com/ARST113/lampa-desktop/releases/download/__TAG__/lampa-arm64-1.6.0-ac3.7-macos-ac3.dmg) | [ZIP](https://github.com/ARST113/lampa-desktop/releases/download/__TAG__/lampa-arm64-1.6.0-ac3.7-macos-ac3.zip) |
+          | ![Apple](https://img.shields.io/badge/Apple-000000?logo=apple&logoColor=white) Intel x64 | [DMG](https://github.com/ARST113/lampa-desktop/releases/download/__TAG__/lampa-x64-1.6.0-ac3.7-macos-ac3.dmg) | [ZIP](https://github.com/ARST113/lampa-desktop/releases/download/__TAG__/lampa-x64-1.6.0-ac3.7-macos-ac3.zip) |
+
+          Требуется macOS 13 или новее. DMG подходит для обычной установки; приложение не нотарифицировано Apple.
+
+          ### Linux — 1.6.0-ac3.7
+
+          [![Linux x86_64](https://raw.githubusercontent.com/ARST113/lampa-desktop/main/.github/badges/linux-x64.svg)](https://github.com/ARST113/lampa-desktop/releases/download/__TAG__/lampa-x86_64-1.6.0-ac3.7-linux-ac3.rpm)
+          [![Linux ARM64](https://raw.githubusercontent.com/ARST113/lampa-desktop/main/.github/badges/linux-arm64.svg)](https://github.com/ARST113/lampa-desktop/releases/download/__TAG__/lampa-aarch64-1.6.0-ac3.7-linux-ac3.rpm)
+
+          Оба варианта Linux представлены пакетами RPM. Пакетов DEB или 32-битных сборок в этом релизе нет.
+
+          [Контрольные суммы SHA-256](https://github.com/ARST113/lampa-desktop/releases/download/__TAG__/SHASUMS256.txt) · [Модифицированный Electron с AC3/EAC3](https://github.com/ARST113/electron)
+
+          <!-- platform-matrix:end -->
+
+          MARKDOWN
+
+          sed -i -e "s/__TAG__/$TARGET_TAG/g" -e "s/__VERSION__/$version/g" platform-index.md
+          cat platform-index.md existing-release-notes.md > unified-release-notes.md
+          gh release edit "$TARGET_TAG" --repo "$GITHUB_REPOSITORY" \
+            --title "Lampa Desktop $version — Windows / macOS / Linux" \
+            --notes-file unified-release-notes.md --latest
+          echo "One release page now lists Windows $version, Linux/macOS 1.6.0-ac3.7." >> "$GITHUB_STEP_SUMMARY"

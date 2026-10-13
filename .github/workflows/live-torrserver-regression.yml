@@ -35,12 +35,8 @@ jobs:
         run: node --check test/live-torrserver-electron.cjs
 
       - name: Probe both supplied 4K torrents in the real Electron main process
-        shell: pwsh
         timeout-minutes: 5
-        run: |
-          $ErrorActionPreference = 'Stop'
-          & '.cache/electron-ac3-eac3/electron.exe' 'test/live-torrserver-electron.cjs'
-          if ($LASTEXITCODE -ne 0) { throw "Live Electron network regression failed with exit code $LASTEXITCODE" }
+        run: node test/run-live-torrserver.cjs
 
       - name: Upload bounded diagnostic report even if the torrent is unavailable
         if: always()

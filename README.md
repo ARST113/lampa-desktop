@@ -10,9 +10,9 @@
 
 ### Windows x64 — 1.6.0-ac3.24
 
-[![Windows — установщик EXE](.github/badges/windows-installer.svg)](https://github.com/ARST113/lampa-desktop/releases/download/v1.6.0-ac3.24/lampa-x64-1.6.0-ac3.24.exe)
-[![Windows — Portable EXE](.github/badges/windows-portable-exe.svg)](https://github.com/ARST113/lampa-desktop/releases/download/v1.6.0-ac3.24/lampa-portable-x64-1.6.0-ac3.24.exe)
-[![Windows — Portable ZIP](.github/badges/windows-portable-zip.svg)](https://github.com/ARST113/lampa-desktop/releases/download/v1.6.0-ac3.24/lampa-portable-zip-x64-1.6.0-ac3.24.zip)
+[![Windows — установщик EXE](.github/badges/windows-installer-ac3.24.svg)](https://github.com/ARST113/lampa-desktop/releases/download/v1.6.0-ac3.24/lampa-x64-1.6.0-ac3.24.exe)
+[![Windows — Portable EXE](.github/badges/windows-portable-exe-ac3.24.svg)](https://github.com/ARST113/lampa-desktop/releases/download/v1.6.0-ac3.24/lampa-portable-x64-1.6.0-ac3.24.exe)
+[![Windows — Portable ZIP](.github/badges/windows-portable-zip-ac3.24.svg)](https://github.com/ARST113/lampa-desktop/releases/download/v1.6.0-ac3.24/lampa-portable-zip-x64-1.6.0-ac3.24.zip)
 
 - **Установщик EXE:** стандартная установка в Windows с поддержкой автообновления.
 - **Portable EXE:** один файл, запуск без установки.

@@ -1,32 +1,81 @@
-name: Build Lampa Windows x64 AC3-EAC3
+name: Build Lampa Linux AC3-EAC3
 
 on:
   workflow_dispatch:
     inputs:
+      target_release:
+        description: Existing GitHub release receiving verified Linux packages
+        type: string
+        default: v1.6.0-ac3.24
+        required: true
       publish_release:
-        description: Publish the verified installer to a GitHub prerelease
+        description: Upload verified packages to the existing release
         type: boolean
         default: true
-  push:
-    tags:
-      - "v*-ac3.*"
 
 permissions:
   contents: write
 
 concurrency:
-  group: lampa-windows-ac3-eac3
+  group: lampa-linux-ac3-eac3-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
-  build-windows:
-    runs-on: windows-latest
-    timeout-minutes: 45
+  linux:
+    name: Linux ${{ matrix.arch }} RPM and AppImage
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x64
+            runner: ubuntu-latest
+            machine: x86_64
+            file_arch: x86-64
+            rpm_arch: x86_64
+            unpacked: linux-unpacked
+            runtime_tag: v44.4.4-linux-x64-ac3-eac3-r4a1
+            runtime_asset: electron-v44.4.4-linux-x64-ac3-eac3.zip
+            runtime_sha256: 7a226ac795109fd2e5cb1916ae2205f96c0588d16d3bb9243404e70bd76f2336
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+            machine: aarch64
+            file_arch: aarch64
+            rpm_arch: aarch64
+            unpacked: linux-arm64-unpacked
+            runtime_tag: v44.4.4-linux-arm64-ac3-eac3-r5a1
+            runtime_asset: electron-v44.4.4-linux-arm64-ac3-eac3.zip
+            runtime_sha256: 574eb5508386a0870bd219b9804b9c19360defb74a08ca6194037d3c6da09bd0
     env:
       ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
+      ELECTRON_OVERRIDE_DIST_PATH: ${{ github.workspace }}/.cache/electron-ac3-eac3
+      USE_SYSTEM_FPM: "true"
+
     steps:
-      - name: Checkout
+      - name: Checkout Linux platform branch
         uses: actions/checkout@v6
+
+      - name: Confirm native architecture and release destination
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_RELEASE: ${{ inputs.target_release }}
+          PUBLISH_RELEASE: ${{ inputs.publish_release }}
+        run: |
+          set -euo pipefail
+          test "$(uname -m)" = "${{ matrix.machine }}"
+          if [ "$PUBLISH_RELEASE" = true ]; then
+            gh release view "$TARGET_RELEASE" --repo "$GITHUB_REPOSITORY" --json tagName
+          fi
+
+      - name: Install native Linux runtime and packaging tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb ffmpeg rpm ruby ruby-dev build-essential libnss3 libgtk-3-0t64 libgbm1 libxss1 libasound2t64
+          sudo gem install fpm --version 1.17.0 --no-document
+          fpm --version
+          ffmpeg -version
+          ffprobe -version
 
       - name: Set up Node.js
         uses: actions/setup-node@v6
@@ -38,103 +87,126 @@ jobs:
           corepack enable
           corepack prepare yarn@4.9.4 --activate
 
-      - name: Install dependencies
+      - name: Install dependencies without standard Electron
         run: yarn install --immutable
 
-      - name: Check application JavaScript
-        run: yarn exec eslint src scripts/verify-electron.cjs
+      - name: Check application JavaScript and changed formatting
+        run: |
+          yarn exec eslint src
+          yarn exec prettier package.json .github/workflows/build.yml src/modules/electronNetFetch.js src/modules/playerOptionsInterceptor.js src/modules/subtitleStream.js src/modules/torrServerManager.js src/modules/ipcHandlers/cloudHandlers.js test/torrserver-cancellation-electron.cjs test/undici-electron-net.cjs --check
 
       - name: Test application updates and subtitles
-        run: node --test test/autoUpdater.test.cjs test/subtitles.test.cjs test/matroska.test.cjs
+        run: node --test test/autoUpdater.test.cjs test/subtitles.test.cjs test/matroska.test.cjs test/subtitleToolPath.test.cjs
 
-      - name: Check changed file formatting
-        run: yarn exec prettier package.json build/subtitle-tools.json scripts/verify-electron.cjs .github/workflows/build.yml src/modules/autoUpdater.js src/modules/windowManager.js src/modules/ipcHandlers/otherHandlers.js src/modules/ipcHandlers/subtitleHandlers.js src/modules/ipcHandlers/index.js src/modules/subtitleExtractor.js src/modules/matroskaSubtitles.js src/modules/subtitleStream.js src/modules/playerOptionsInterceptor.js src/modules/pluginHandler.js src/subtitleBridge.js src/preload.js src/plugin.js test/*.cjs README.md --check
-
-      - name: Download and verify custom Electron
-        shell: pwsh
-        run: ./scripts/prepare-electron.ps1
-
-      - name: Prepare verified subtitle extraction tool
-        shell: pwsh
-        run: ./scripts/prepare-subtitle-tools.ps1
-
-      - name: Test real subtitle playback and seeking
-        run: node test/run-subtitle-integration.cjs
-
-      - name: Package Windows x64 installer
-        run: yarn build-win
-
-      - name: Verify packaged runtime and installer
-        id: verify
-        shell: pwsh
+      - name: Download verified custom Electron runtime
+        env:
+          RUNTIME_TAG: ${{ matrix.runtime_tag }}
+          RUNTIME_ASSET: ${{ matrix.runtime_asset }}
+          EXPECTED_SHA256: ${{ matrix.runtime_sha256 }}
         run: |
-          node scripts/verify-electron.cjs dist/win-unpacked/Lampa.exe dist/win-unpacked/ffmpeg.dll
-          if ($LASTEXITCODE -ne 0) { throw 'Packaged runtime verification failed.' }
-          if (!(Test-Path -LiteralPath 'dist/win-unpacked/resources/app.asar')) { throw 'Missing packaged application.' }
-          $subtitleTools = Get-Content build/subtitle-tools.json -Raw | ConvertFrom-Json
-          $subtitleHash = (Get-FileHash -LiteralPath 'dist/win-unpacked/resources/subtitle-tools/ffmpeg.exe' -Algorithm SHA256).Hash
-          if ($subtitleHash -ne $subtitleTools.executableSha256) { throw 'Packaged subtitle tool checksum mismatch.' }
-          $probeHash = (Get-FileHash -LiteralPath 'dist/win-unpacked/resources/subtitle-tools/ffprobe.exe' -Algorithm SHA256).Hash
-          if ($probeHash -ne $subtitleTools.probeSha256) { throw 'Packaged subtitle probe checksum mismatch.' }
-          foreach ($notice in $subtitleTools.notices) {
-            $noticeHash = (Get-FileHash -LiteralPath (Join-Path 'dist/win-unpacked/resources/subtitle-tools' $notice.file) -Algorithm SHA256).Hash
-            if ($noticeHash -ne $notice.sha256) { throw 'Packaged subtitle notice checksum mismatch.' }
-          }
-          $package = Get-Content package.json -Raw | ConvertFrom-Json
-          $tag = "v$($package.version)"
-          if ($env:GITHUB_REF_TYPE -eq 'tag' -and $env:GITHUB_REF_NAME -ne $tag) { throw 'Tag and package version differ.' }
-          $installer = Get-Item -LiteralPath "dist/lampa-x64-$($package.version).exe"
-          if ($installer.Length -lt 10MB) { throw 'Installer is unexpectedly small.' }
-          "tag=$tag" >> $env:GITHUB_OUTPUT
-          Get-ChildItem -Path dist/*.exe,dist/*.blockmap,dist/ac3.yml | ForEach-Object {
-            $hash = (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
-            "$hash  $($_.Name)"
-          } | Set-Content -LiteralPath dist/SHASUMS256.txt -Encoding utf8
+          set -euo pipefail
+          mkdir -p .cache/electron-ac3-eac3
+          curl -fL --retry 3 --retry-delay 5 -o .cache/electron-runtime.zip "https://github.com/ARST113/electron/releases/download/$RUNTIME_TAG/$RUNTIME_ASSET"
+          echo "$EXPECTED_SHA256  .cache/electron-runtime.zip" | sha256sum -c -
+          unzip -q -o .cache/electron-runtime.zip -d .cache/electron-ac3-eac3
+          chmod +x .cache/electron-ac3-eac3/electron
+          test "$(tr -d '\r\n' < .cache/electron-ac3-eac3/version)" = "44.4.4"
+          file .cache/electron-ac3-eac3/electron
+          file .cache/electron-ac3-eac3/electron | grep -q "${{ matrix.file_arch }}"
+          strings -a .cache/electron-ac3-eac3/libffmpeg.so > .cache/codec-symbols.txt
+          grep -q ff_ac3_decoder .cache/codec-symbols.txt
+          grep -q ff_eac3_decoder .cache/codec-symbols.txt
 
-      - name: Upload installer artifact
+      - name: Verify cancellation and response handling in real native Electron
+        run: |
+          set -euo pipefail
+          unset ELECTRON_RUN_AS_NODE
+          xvfb-run -a .cache/electron-ac3-eac3/electron --no-sandbox test/undici-electron-net.cjs 2>&1 | tee .cache/undici-electron-net.log
+          grep -q "PASS: TorrServer checks and delayed large HTTP response use Electron net.fetch without Node Undici" .cache/undici-electron-net.log
+          xvfb-run -a .cache/electron-ac3-eac3/electron --no-sandbox test/torrserver-cancellation-electron.cjs 2>&1 | tee .cache/torrserver-cancellation.log
+          grep -q "PASS: cancelled MKV streams release sockets" .cache/torrserver-cancellation.log
+          grep -q "PASS: early-cancelled requests with no response headers are bounded" .cache/torrserver-cancellation.log
+
+      - name: Use native Linux subtitle tools
+        env:
+          PACKAGE_ARCH: ${{ matrix.rpm_arch }}
+        run: |
+          node <<'NODE'
+          const fs = require("node:fs");
+          const p = JSON.parse(fs.readFileSync("package.json", "utf8"));
+          delete p.build.extraResources;
+          p.build.artifactName = "lampa-" + process.env.PACKAGE_ARCH + "-" + p.version + "-linux-ac3.${ext}";
+          fs.writeFileSync("package.json", JSON.stringify(p, null, 2) + "\n");
+          NODE
+
+      - name: Build RPM and AppImage with the verified runtime
+        run: yarn exec electron-builder --linux rpm AppImage --${{ matrix.arch }} --publish=never
+
+      - name: Verify packaged architecture runtime and cancellation code
+        env:
+          UNPACKED: ${{ matrix.unpacked }}
+          FILE_ARCH: ${{ matrix.file_arch }}
+          RPM_ARCH: ${{ matrix.rpm_arch }}
+          ARCH: ${{ matrix.arch }}
+        run: |
+          set -euo pipefail
+          packaged="dist/$UNPACKED"
+          file "$packaged/lampa-desktop"
+          file "$packaged/lampa-desktop" | grep -q "$FILE_ARCH"
+          cmp .cache/electron-ac3-eac3/electron "$packaged/lampa-desktop"
+          cmp .cache/electron-ac3-eac3/libffmpeg.so "$packaged/libffmpeg.so"
+          node <<'NODE'
+          const assert = require("node:assert/strict");
+          const fs = require("node:fs");
+          const { extractFile } = require("@electron/asar");
+          const archive = `dist/${process.env.UNPACKED}/resources/app.asar`;
+          const pkg = JSON.parse(extractFile(archive, "package.json").toString());
+          assert.equal(pkg.version, "1.6.0-ac3.8");
+          for (const file of ["electronNetFetch", "playerOptionsInterceptor", "subtitleStream", "torrServerManager", "ipcHandlers/cloudHandlers"]) {
+            const source = `src/modules/${file}.js`;
+            assert.deepEqual(extractFile(archive, source), fs.readFileSync(source));
+          }
+          console.log("PASS: packaged ASAR contains the verified cancellation transport and subtitle routing.");
+          NODE
+          mapfile -t packages < <(find dist -maxdepth 1 -type f -name '*.rpm' -print)
+          test "${#packages[@]}" -eq 1
+          test "$(rpm -qp --qf '%{ARCH}' "${packages[0]}")" = "$RPM_ARCH"
+          rpm -qpl "${packages[0]}" > .cache/rpm-files.txt
+          grep -q '/resources/app.asar$' .cache/rpm-files.txt
+          mapfile -t images < <(find dist -maxdepth 1 -type f -name '*.AppImage' -print)
+          test "${#images[@]}" -eq 1
+          file "${images[0]}"
+          file "${images[0]}" | grep -q "$FILE_ARCH"
+          (cd dist && sha256sum *.rpm *.AppImage) | tee "dist/SHASUMS256-linux-$ARCH.txt"
+
+      - name: Upload verified Linux packages
         uses: actions/upload-artifact@v6
         with:
-          name: lampa-windows-x64-ac3-eac3
+          name: lampa-linux-${{ matrix.arch }}-ac3-eac3
           if-no-files-found: error
+          compression-level: 0
+          retention-days: 30
           path: |
-            dist/*.exe
-            dist/*.blockmap
-            dist/ac3.yml
-            dist/SHASUMS256.txt
+            dist/*.rpm
+            dist/*.AppImage
+            dist/SHASUMS256-linux-*.txt
 
-      - name: Publish verified installer
-        if: github.event_name == 'push' || inputs.publish_release
-        uses: softprops/action-gh-release@v2
+      - name: Upload cancellation regression evidence
+        if: always()
+        uses: actions/upload-artifact@v6
         with:
-          tag_name: ${{ steps.verify.outputs.tag }}
-          target_commitish: ${{ github.sha }}
-          name: Lampa ${{ steps.verify.outputs.tag }} — Windows x64 AC3/EAC3
-          prerelease: true
-          fail_on_unmatched_files: true
-          body: |
-            Windows x64 build of Lampa Desktop using custom Electron 44.4.4 with AC3/EAC3 build flags.
+          name: lampa-linux-${{ matrix.arch }}-cancellation-regression
+          if-no-files-found: warn
+          path: |
+            .cache/torrserver-cancellation.log
+            .cache/undici-electron-net.log
 
-            Enables embedded audio-track switching in the internal player, including torrents played through TorrServer.
-            Adds App settings → Check for updates, with background downloads and installation after confirmation.
-
-            New in ac3.7: fixes subtitles disappearing when Lampa changes its in-page history/hash route while playback continues.
-            The subtitle subscription now stays active until the player closes or the document actually changes.
-            Reads embedded text subtitle packets directly from the MKV bytes already fetched by the video player.
-            Already buffered languages switch immediately without launching FFmpeg or a second media download.
-            On a seek into a long caption, uses the MKV subtitle index for a bounded byte-range lookup. Files without a subtitle index resume captions from the next received packet.
-            Opens developer tools with F12, Ctrl+Shift+I, or App settings → Open console.
-            Supports embedded MKV text subtitles (SRT, ASS/SSA, WebVTT) in the internal player through TorrServer, including compatibility with Lampac Tracks menus.
-            Discovers subtitle tracks from the MKV header, independently of TorrServer FFprobe metadata.
-            Supports language switching, seeking and disabling subtitles. Video and audio are not transcoded.
-            Graphical PGS/VobSub tracks are unsupported by this reader; complex ASS styling is converted to WebVTT text.
-
-            Based on Kolovatoff/lampa-desktop. Updates for this build use ARST113/lampa-desktop.
-            Runtime: https://github.com/ARST113/electron/releases/tag/v44.4.4-ac3-eac3
-            The build verifies the ZIP checksum, packaged Electron version and unchanged custom ffmpeg.dll.
-
-            Download the `.exe` installer below. SHA-256 checksums are in SHASUMS256.txt.
-          files: |
-            dist/*.exe
-            dist/*.blockmap
-            dist/ac3.yml
-            dist/SHASUMS256.txt
+      - name: Publish verified Linux packages to existing release
+        if: inputs.publish_release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_RELEASE: ${{ inputs.target_release }}
+        run: |
+          set -euo pipefail
+          gh release view "$TARGET_RELEASE" --repo "$GITHUB_REPOSITORY" --json tagName
+          gh release upload "$TARGET_RELEASE" dist/*.rpm dist/*.AppImage dist/SHASUMS256-linux-*.txt --repo "$GITHUB_REPOSITORY" --clobber

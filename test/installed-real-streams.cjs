@@ -85,6 +85,7 @@ const getState = [
   "audioTracks:v?.audioTracks ? Array.from(v.audioTracks,x=>({label:x.label,language:x.language,enabled:x.enabled})) : [],",
   "canPlayAc3:v?.canPlayType?.('audio/mp4; codecs=\"ac-3\"') || '',",
   "canPlayEac3:v?.canPlayType?.('audio/mp4; codecs=\"ec-3\"') || '',",
+  "hevcCapability:v?.canPlayType?.('video/mp4; codecs=\\\"hvc1.1.6.L120.90\\\"') || '',",
   "text:(document.body?.innerText || '').slice(-160)};",
   "})()",
 ].join("\n");
@@ -101,6 +102,31 @@ function endProcess(p) {
 }
 async function scenario(target, index) {
   const result = { name: target.name, outcome: "not-started", samples: [] };
+  const ffprobe = path.join(path.dirname(exe), "resources", "subtitle-tools", "ffprobe.exe");
+  if (fs.existsSync(ffprobe)) {
+    const probe = spawnSync(ffprobe, [
+      "-v", "error", "-probesize", "1048576", "-analyzeduration", "3000000",
+      "-show_entries",
+      "stream=index,codec_type,codec_name,profile,width,height,channels,channel_layout",
+      "-of", "json", target.url,
+    ], { windowsHide: true, encoding: "utf8", timeout: 45000, maxBuffer: 1024 * 1024 });
+    try {
+      const info = JSON.parse(probe.stdout || "{}");
+      result.ffprobe = {
+        exitCode: probe.status,
+        streams: info.streams || [],
+        diagnostic: redact(probe.stderr?.slice(-800)),
+      };
+    } catch (error) {
+      result.ffprobe = {
+        exitCode: probe.status, error: error.message,
+        diagnostic: redact(probe.stderr?.slice(-800)),
+      };
+    }
+    console.log("FFPROBE", target.name, JSON.stringify(result.ffprobe));
+  } else {
+    result.ffprobe = { unavailable: "No ffprobe.exe packaged with installer" };
+  }
   fs.writeFileSync(configFile, JSON.stringify({
     lampaUrl: "http://lampa.mx/", webSecurity: true,
     autoUpdate: false, tsAutoStart: false,
@@ -207,6 +233,7 @@ async function scenario(target, index) {
     result.processAlive = processApp.exitCode === null;
     result.outcome = metadata && progress ? "video-progress-verified" :
       last?.error ? "media-error" : "no-video-progress";
+    console.log("VIDEO_DIAGNOSTICS", JSON.stringify({name: result.name, last: result.last}));
     console.log("RESULT", result.name, result.outcome,
       "resolution", last?.width, "x", last?.height,
       "seek", !!result.seekSuccess, "alive", result.processAlive);

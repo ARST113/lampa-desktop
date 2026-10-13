@@ -1,0 +1,94 @@
+name: Installed Lampa Windows — Real 4K Playback
+
+on:
+  push:
+    branches:
+      - test/installed-lampa-real-4k-playback
+    paths:
+      - "test/installed-real-streams.cjs"
+      - ".github/workflows/installed-lampa-playback.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  installed-player:
+    runs-on: windows-latest
+    timeout-minutes: 14
+    env:
+      LIVE_MUTINY_MASTER5: "http://213.171.26.189:2367/stream/Mutiny.2026.2160p.WEB-DL.HDR.H265.Master5.mkv?link=6eea6e56f897fefa49f835726c6da09ed8e56ec2&index=1&play"
+      LIVE_MUTINY_AC3: "http://213.171.26.189:2367/stream/Mutiny.2026.x265.WEB-DL.2160p.HDR.mkv?link=2276bb3214b4b108b506d25284a6e120fa8e4dbc&index=1&play"
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Node 24 for CDP diagnostics
+        uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+
+      - name: Validate installed-player regression test
+        run: node --check test/installed-real-streams.cjs
+
+      - name: Download and verify published 1.6.0-ac3.23 Windows installer
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          New-Item -ItemType Directory -Path '.cache/installed-real-playback' -Force | Out-Null
+          $url = 'https://github.com/ARST113/lampa-desktop/releases/download/v1.6.0-ac3.23/lampa-x64-1.6.0-ac3.23.exe'
+          $file = '.cache/installed-real-playback/installer.exe'
+          Invoke-WebRequest -Uri $url -OutFile $file
+          $expected = '527def3a7ec16a76aa0d5d5ab89bc8af3cb470bffac7f336a6a0030aaa103b75'
+          if ((Get-FileHash $file -Algorithm SHA256).Hash.ToLowerInvariant() -ne $expected) {
+            throw 'Installer checksum mismatch'
+          }
+
+      - name: Install real Lampa release with NSIS
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $installer = (Resolve-Path '.cache/installed-real-playback/installer.exe').Path
+          $destination = Join-Path $env:RUNNER_TEMP 'LampaInstalledE2E'
+          $proc = Start-Process -FilePath $installer -ArgumentList @('/S', "/D=$destination") -PassThru
+          if (-not $proc.WaitForExit(120000)) {
+            Stop-Process -Id $proc.Id -Force
+            throw 'Windows installer timed out'
+          }
+          if ($proc.ExitCode -ne 0) { throw "NSIS installer exited $($proc.ExitCode)" }
+          $exe = Join-Path $destination 'Lampa.exe'
+          if (!(Test-Path $exe)) { throw 'Installed Lampa.exe was not found' }
+          if (!(Test-Path (Join-Path $destination 'resources/app.asar'))) { throw 'Installed app.asar missing' }
+          "LAMPATEST_EXECUTABLE=$exe" >> $env:GITHUB_ENV
+
+      - name: Run installed Lampa UI with real 4K HDR and AC3 sources
+        run: node test/installed-real-streams.cjs
+        timeout-minutes: 8
+
+      - name: Print actual Lampa player results
+        if: always()
+        shell: pwsh
+        run: |
+          $file = '.cache/installed-real-playback/report.json'
+          if (!(Test-Path $file)) {
+            'Test did not generate player diagnostics.' >> $env:GITHUB_STEP_SUMMARY
+            exit 0
+          }
+          $r = Get-Content -LiteralPath $file -Raw | ConvertFrom-Json
+          '## NSIS-installed Lampa.exe / real Lampa.Player.play()' >> $env:GITHUB_STEP_SUMMARY
+          '| File | Result | Video metadata | Timeline progress | Seek | Process alive |' >> $env:GITHUB_STEP_SUMMARY
+          '| --- | --- | --- | --- | --- | --- |' >> $env:GITHUB_STEP_SUMMARY
+          foreach ($s in $r.streams) {
+            "| $($s.name) | $($s.outcome) | $($s.metadata) | $($s.advanced) | $($s.seekSuccess) | $($s.processAlive) |" >> $env:GITHUB_STEP_SUMMARY
+            Write-Host "Outcome: $($s.name) = $($s.outcome)"
+            if ($s.error) { Write-Warning $s.error }
+          }
+
+      - name: Keep real installed-player reports and screenshots
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: installed-lampa-windows-player-diagnostics
+          path: |
+            .cache/installed-real-playback/report.json
+            .cache/installed-real-playback/*.png
+          if-no-files-found: warn

@@ -31,6 +31,9 @@ jobs:
         shell: pwsh
         run: ./scripts/prepare-electron.ps1
 
+      - name: Validate regression script syntax
+        run: node --check test/live-torrserver-electron.cjs
+
       - name: Probe both supplied 4K torrents in the real Electron main process
         shell: pwsh
         timeout-minutes: 5

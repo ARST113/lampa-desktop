@@ -48,7 +48,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          now="$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/v1.6.0-ac3.21")"
+          now="$(gh api "repos/$GITHUB_REPOSITORY/releases/409884645")"
           latest="$(gh api "repos/$GITHUB_REPOSITORY/releases/latest")"
           echo "$now" | jq -e '.draft == true' >/dev/null
           echo "$latest" | jq -e '.tag_name == "v1.6.0-ac3.22"' >/dev/null

@@ -20,25 +20,24 @@
 
 ### Linux — 1.6.0-ac3.8
 
-[![Linux x86_64](.github/badges/linux-x64-ac3.8.svg)](https://github.com/ARST113/lampa-desktop/releases/download/v1.6.0-ac3.24/lampa-x86_64-1.6.0-ac3.8-linux-ac3.rpm) · [AppImage для x86_64](https://github.com/ARST113/lampa-desktop/releases/download/v1.6.0-ac3.24/lampa-x86_64-1.6.0-ac3.8-linux-ac3.AppImage)
+[![Linux x86_64](.github/badges/linux-x64-ac3.8.svg)](https://github.com/ARST113/lampa-desktop/releases/download/v1.6.0-ac3.24/lampa-x86_64-1.6.0-ac3.8-linux-ac3.rpm)
 
-[![Linux ARM64](.github/badges/linux-arm64-ac3.8.svg)](https://github.com/ARST113/lampa-desktop/releases/download/v1.6.0-ac3.24/lampa-aarch64-1.6.0-ac3.8-linux-ac3.rpm) · [AppImage для ARM64](https://github.com/ARST113/lampa-desktop/releases/download/v1.6.0-ac3.24/lampa-aarch64-1.6.0-ac3.8-linux-ac3.AppImage)
+[![Linux ARM64](.github/badges/linux-arm64-ac3.8.svg)](https://github.com/ARST113/lampa-desktop/releases/download/v1.6.0-ac3.24/lampa-aarch64-1.6.0-ac3.8-linux-ac3.rpm)
 
 - **RPM:** для совместимых дистрибутивов с пакетным менеджером RPM.
-- **AppImage:** автономный исполняемый файл для Linux; после скачивания предоставьте право на запуск.
 - **Архитектуры:** x86_64 (Intel/AMD) и aarch64 (ARM64).
 
 Отдельных DEB и 32-битных сборок нет. Версия ac3.8 прошла проверки сетевого обработчика и упакованного Electron на обеих архитектурах.
 
 ### macOS — 1.6.0-ac3.8
 
-[![macOS Universal](.github/badges/macos-universal-ac3.8.svg)](https://github.com/ARST113/lampa-desktop/releases/download/v1.6.0-ac3.24/lampa-universal-1.6.0-ac3.8-macos-ac3.dmg) · [ZIP для Universal](https://github.com/ARST113/lampa-desktop/releases/download/v1.6.0-ac3.24/lampa-universal-1.6.0-ac3.8-macos-ac3.zip)
+[![macOS Universal](.github/badges/macos-universal-ac3.8.svg)](https://github.com/ARST113/lampa-desktop/releases/download/v1.6.0-ac3.24/lampa-universal-1.6.0-ac3.8-macos-ac3.dmg)
 
-[![macOS Intel](.github/badges/macos-intel-ac3.8.svg)](https://github.com/ARST113/lampa-desktop/releases/download/v1.6.0-ac3.24/lampa-x64-1.6.0-ac3.8-macos-ac3.dmg) · [ZIP для Intel](https://github.com/ARST113/lampa-desktop/releases/download/v1.6.0-ac3.24/lampa-x64-1.6.0-ac3.8-macos-ac3.zip)
+[![macOS Intel](.github/badges/macos-intel-ac3.8.svg)](https://github.com/ARST113/lampa-desktop/releases/download/v1.6.0-ac3.24/lampa-x64-1.6.0-ac3.8-macos-ac3.dmg)
 
-[![macOS Apple Silicon](.github/badges/macos-arm64-ac3.8.svg)](https://github.com/ARST113/lampa-desktop/releases/download/v1.6.0-ac3.24/lampa-arm64-1.6.0-ac3.8-macos-ac3.dmg) · [ZIP для Apple Silicon](https://github.com/ARST113/lampa-desktop/releases/download/v1.6.0-ac3.24/lampa-arm64-1.6.0-ac3.8-macos-ac3.zip)
+[![macOS Apple Silicon](.github/badges/macos-arm64-ac3.8.svg)](https://github.com/ARST113/lampa-desktop/releases/download/v1.6.0-ac3.24/lampa-arm64-1.6.0-ac3.8-macos-ac3.dmg)
 
-Кнопки загружают **DMG**. Откройте образ и перенесите **Lampa.app** в «Программы» (Applications). Архивы ZIP доступны отдельно для всех трёх архитектур.
+Кнопки загружают **DMG**. Откройте образ и перенесите **Lampa.app** в «Программы» (Applications).
 
 - **Universal:** Intel x64 и Apple Silicon ARM64 в одном приложении.
 - **Intel x64:** для Mac на процессорах Intel.

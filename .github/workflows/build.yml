@@ -97,6 +97,7 @@ jobs:
           if ($portableExe.Length -lt 10MB) { throw 'Portable EXE is unexpectedly small.' }
 
           "tag=$tag" >> $env:GITHUB_OUTPUT
+          "version=$($package.version)" >> $env:GITHUB_OUTPUT
           Get-ChildItem -Path dist/*.exe,dist/*.blockmap,dist/ac3.yml | ForEach-Object {
             $hash = (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
             "$hash  $($_.Name)"
@@ -210,17 +211,19 @@ jobs:
 
             ## Скачать Windows
 
-            [![Windows — установщик EXE](https://raw.githubusercontent.com/ARST113/lampa-desktop/main/.github/badges/windows-installer.svg)](https://github.com/ARST113/lampa-desktop/releases/download/${{ steps.verify.outputs.tag }}/lampa-x64-1.6.0-ac3.22.exe)
+            [![Windows — установщик EXE](https://raw.githubusercontent.com/ARST113/lampa-desktop/main/.github/badges/windows-installer.svg)](https://github.com/ARST113/lampa-desktop/releases/download/${{ steps.verify.outputs.tag }}/lampa-x64-${{ steps.verify.outputs.version }}.exe)
 
-            [![Windows — Portable EXE](https://raw.githubusercontent.com/ARST113/lampa-desktop/main/.github/badges/windows-portable-exe.svg)](https://github.com/ARST113/lampa-desktop/releases/download/${{ steps.verify.outputs.tag }}/lampa-portable-x64-1.6.0-ac3.22.exe)
+            [![Windows — Portable EXE](https://raw.githubusercontent.com/ARST113/lampa-desktop/main/.github/badges/windows-portable-exe.svg)](https://github.com/ARST113/lampa-desktop/releases/download/${{ steps.verify.outputs.tag }}/lampa-portable-x64-${{ steps.verify.outputs.version }}.exe)
 
-            [![Windows — Portable ZIP](https://raw.githubusercontent.com/ARST113/lampa-desktop/main/.github/badges/windows-portable-zip.svg)](https://github.com/ARST113/lampa-desktop/releases/download/${{ steps.verify.outputs.tag }}/lampa-portable-zip-x64-1.6.0-ac3.22.zip)
+            [![Windows — Portable ZIP](https://raw.githubusercontent.com/ARST113/lampa-desktop/main/.github/badges/windows-portable-zip.svg)](https://github.com/ARST113/lampa-desktop/releases/download/${{ steps.verify.outputs.tag }}/lampa-portable-zip-x64-${{ steps.verify.outputs.version }}.zip)
 
             - **Установщик EXE:** обычная установка, автоматическое обновление.
             - **Portable EXE:** запуск без установки; хранит профиль в `LampaData` рядом с файлом.
             - **Portable ZIP:** распакуйте архив в отдельную папку и запустите `Lampa.exe`, без предварительной NSIS-распаковки.
 
             ## Что исправлено
+
+            - Исправлен сбой основного процесса из-за Node.js Undici (`Parser.finish`): HTTP-запросы TorrServer и облака выполняются через Chromium `electron.net.fetch`, а субтитры используют тот же сетевой транспорт.
 
             - Первый запуск напрямую открывает lampa.mx, а следующие запуски — сохранённый сервер без промежуточного окна.
             - Экран исправления адреса появляется только после подтверждённой ошибки загрузки.

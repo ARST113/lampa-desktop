@@ -56,9 +56,11 @@ jobs:
           TARGET_TAG: ${{ steps.release.outputs.tag }}
         run: |
           set -euo pipefail
-          mkdir -p source-check staging
-          gh release download "$SOURCE_TAG" --repo "$GITHUB_REPOSITORY" \
-            --pattern 'SHASUMS256.txt' --dir source-check
+          mkdir -p staging
+          # The original release's checksum text predates some Linux/macOS
+          # uploads. GitHub's per-asset SHA-256 digest covers every asset.
+          gh api "repos/$GITHUB_REPOSITORY/releases/tags/$SOURCE_TAG" \
+            --jq '.assets[] | "\(.name) \(.digest)"' > source-digests.txt
           gh release view "$TARGET_TAG" --repo "$GITHUB_REPOSITORY" \
             --json assets --jq '.assets[].name' > target-assets.txt
 
@@ -74,7 +76,7 @@ jobs:
           )
 
           for package in "${packages[@]}"; do
-            expected="$(awk -v name="$package" '$2 == name {print $1}' source-check/SHASUMS256.txt | tr -d '\r')"
+            expected="$(awk -v name="$package" '$1 == name {sub(/^sha256:/, "", $2); print $2}' source-digests.txt)"
             [[ "$expected" =~ ^[a-fA-F0-9]{64}$ ]] || {
               echo "Missing or invalid source checksum for $package"; exit 1;
             }
@@ -97,7 +99,7 @@ jobs:
             --pattern 'SHASUMS256.txt' --dir target-check
           cp target-check/SHASUMS256.txt merged-sha256.txt
           for package in "${packages[@]}"; do
-            expected="$(awk -v name="$package" '$2 == name {print $1}' source-check/SHASUMS256.txt | tr -d '\r')"
+            expected="$(awk -v name="$package" '$1 == name {sub(/^sha256:/, "", $2); print $2}' source-digests.txt)"
             awk -v name="$package" '$2 != name' merged-sha256.txt > merged-sha256.tmp
             mv merged-sha256.tmp merged-sha256.txt
             printf '%s  %s\n' "$expected" "$package" >> merged-sha256.txt

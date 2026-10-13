@@ -158,13 +158,13 @@ jobs:
 
           ### macOS — 1.6.0-ac3.7
 
-          | Архитектура | Установочный образ | Архив приложения |
-          | --- | --- | --- |
-          | ![Apple](https://img.shields.io/badge/Apple-000000?logo=apple&logoColor=white) Universal (Intel + Apple Silicon) | [DMG](https://github.com/ARST113/lampa-desktop/releases/download/__TAG__/lampa-universal-1.6.0-ac3.7-macos-ac3.dmg) | [ZIP](https://github.com/ARST113/lampa-desktop/releases/download/__TAG__/lampa-universal-1.6.0-ac3.7-macos-ac3.zip) |
-          | ![Apple](https://img.shields.io/badge/Apple-000000?logo=apple&logoColor=white) Apple Silicon ARM64 | [DMG](https://github.com/ARST113/lampa-desktop/releases/download/__TAG__/lampa-arm64-1.6.0-ac3.7-macos-ac3.dmg) | [ZIP](https://github.com/ARST113/lampa-desktop/releases/download/__TAG__/lampa-arm64-1.6.0-ac3.7-macos-ac3.zip) |
-          | ![Apple](https://img.shields.io/badge/Apple-000000?logo=apple&logoColor=white) Intel x64 | [DMG](https://github.com/ARST113/lampa-desktop/releases/download/__TAG__/lampa-x64-1.6.0-ac3.7-macos-ac3.dmg) | [ZIP](https://github.com/ARST113/lampa-desktop/releases/download/__TAG__/lampa-x64-1.6.0-ac3.7-macos-ac3.zip) |
+          [![macOS Universal](https://raw.githubusercontent.com/ARST113/lampa-desktop/main/.github/badges/macos-universal.svg)](https://github.com/ARST113/lampa-desktop/releases/download/__TAG__/lampa-universal-1.6.0-ac3.7-macos-ac3.dmg) · [ZIP для Universal](https://github.com/ARST113/lampa-desktop/releases/download/__TAG__/lampa-universal-1.6.0-ac3.7-macos-ac3.zip)
 
-          Требуется macOS 13 или новее. DMG подходит для обычной установки; приложение не нотарифицировано Apple.
+          [![macOS Intel](https://raw.githubusercontent.com/ARST113/lampa-desktop/main/.github/badges/macos-intel.svg)](https://github.com/ARST113/lampa-desktop/releases/download/__TAG__/lampa-x64-1.6.0-ac3.7-macos-ac3.dmg) · [ZIP для Intel](https://github.com/ARST113/lampa-desktop/releases/download/__TAG__/lampa-x64-1.6.0-ac3.7-macos-ac3.zip)
+
+          [![macOS Apple Silicon](https://raw.githubusercontent.com/ARST113/lampa-desktop/main/.github/badges/macos-arm64.svg)](https://github.com/ARST113/lampa-desktop/releases/download/__TAG__/lampa-arm64-1.6.0-ac3.7-macos-ac3.dmg) · [ZIP для Apple Silicon](https://github.com/ARST113/lampa-desktop/releases/download/__TAG__/lampa-arm64-1.6.0-ac3.7-macos-ac3.zip)
+
+          **DMG** — установочный образ: откройте его и перетащите `Lampa.app` в «Программы» (Applications). **ZIP** — архив приложения, доступный отдельно для каждой архитектуры. Требуется macOS 13 Ventura или новее; сборки не нотарифицированы Apple.
 
           ### Linux — 1.6.0-ac3.7
 

@@ -11,7 +11,14 @@ app.setPath(
 );
 
 const server = http.createServer((req, res) => {
-  if (req.url === "/echo") {
+  if (req.url === "/upload" && req.method === "POST") {
+    const chunks = [];
+    req.on("data", (chunk) => chunks.push(chunk));
+    req.on("end", () => {
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify(JSON.parse(Buffer.concat(chunks).toString())));
+    });
+  } else if (req.url === "/echo") {
     res.writeHead(200, { "Content-Type": "text/plain" });
     res.end("MatriX.142.2");
   } else if (req.url === "/gst/echo") {
@@ -64,6 +71,17 @@ app
       // The socket closes while its response body is still unread.
       await new Promise((resolve) => setTimeout(resolve, 400));
       await response.body?.cancel();
+
+      // JSON uploads/downloads used by cloud settings must also avoid Undici.
+      const uploaded = await electronNetFetch(
+        `http://127.0.0.1:${port}/upload`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ data: "encrypted-payload" }),
+        },
+      );
+      assert.deepEqual(await uploaded.json(), { data: "encrypted-payload" });
 
       // Confirm subsequent requests still work after that FIN.
       const echo = await electronNetFetch(`http://127.0.0.1:${port}/echo`);

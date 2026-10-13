@@ -1,0 +1,48 @@
+name: Live TorrServer 4K Stream Regression
+
+# Does not download whole torrents or require a local Windows/ATV player.
+# First-run PR branch performs live checks; subsequent runs use workflow_dispatch.
+on:
+  push:
+    branches:
+      - test/real-torrserver-streams
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  live-electron-streams:
+    runs-on: windows-latest
+    timeout-minutes: 12
+    env:
+      ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
+      LIVE_MUTINY_MASTER5: "http://213.171.26.189:2367/stream/Mutiny.2026.2160p.WEB-DL.HDR.H265.Master5.mkv?link=6eea6e56f897fefa49f835726c6da09ed8e56ec2&index=1&play"
+      LIVE_MUTINY_AC3: "http://213.171.26.189:2367/stream/Mutiny.2026.x265.WEB-DL.2160p.HDR.mkv?link=2276bb3214b4b108b506d25284a6e120fa8e4dbc&index=1&play"
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Node 24 for Electron runtime verification
+        uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+
+      - name: Download and verify pinned AC3/EAC3 Electron 44.4.4
+        shell: pwsh
+        run: ./scripts/prepare-electron.ps1
+
+      - name: Probe both supplied 4K torrents in the real Electron main process
+        shell: pwsh
+        timeout-minutes: 5
+        run: |
+          $ErrorActionPreference = 'Stop'
+          & '.cache/electron-ac3-eac3/electron.exe' 'test/live-torrserver-electron.cjs'
+          if ($LASTEXITCODE -ne 0) { throw "Live Electron network regression failed with exit code $LASTEXITCODE" }
+
+      - name: Upload bounded diagnostic report even if the torrent is unavailable
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: live-torrserver-electron-4k-report
+          if-no-files-found: warn
+          path: .cache/live-torrserver/report.json

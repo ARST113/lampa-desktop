@@ -10,7 +10,9 @@ const { electronNetFetch } = require("../src/modules/electronNetFetch");
 const root = path.resolve(__dirname, "..");
 const output = path.join(root, ".cache", "live-torrserver");
 fs.mkdirSync(output, { recursive: true });
-app.setPath("userData", path.join(output, "profile"));
+const profile = path.join(output, "profile");
+fs.mkdirSync(profile, { recursive: true });
+app.setPath("userData", profile);
 
 const streams = [
   { label: "Mutiny 2160p HDR Master5", url: process.env.LIVE_MUTINY_MASTER5 },

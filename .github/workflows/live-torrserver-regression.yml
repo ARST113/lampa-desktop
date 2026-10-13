@@ -5,11 +5,20 @@ name: Live TorrServer 4K Stream Regression
 on:
   push:
     branches:
+      - main
       - test/real-torrserver-streams
+    paths:
+      - ".github/workflows/live-torrserver-regression.yml"
+      - "test/live-torrserver-electron.cjs"
+      - "test/run-live-torrserver.cjs"
   workflow_dispatch:
 
 permissions:
   contents: read
+
+concurrency:
+  group: real-torrserver-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   live-electron-streams:
@@ -37,6 +46,32 @@ jobs:
       - name: Probe both supplied 4K torrents in the real Electron main process
         timeout-minutes: 5
         run: node test/run-live-torrserver.cjs
+
+      - name: Summarize verified media stream ranges
+        if: always()
+        shell: pwsh
+        run: |
+          $file = '.cache/live-torrserver/report.json'
+          if (!(Test-Path -LiteralPath $file)) {
+            Write-Warning 'No JSON report: the Electron test did not reach media probes.'
+            'No media probe results were recorded.' >> $env:GITHUB_STEP_SUMMARY
+            exit 0
+          }
+          $report = Get-Content -LiteralPath $file -Raw | ConvertFrom-Json
+          '## Real TorrServer streams (Electron 44.4.4)' >> $env:GITHUB_STEP_SUMMARY
+          '| Stream | Result | Checks | AC3/EAC3 marker in header |' >> $env:GITHUB_STEP_SUMMARY
+          '| --- | --- | --- | --- |' >> $env:GITHUB_STEP_SUMMARY
+          foreach ($entry in $report.streams) {
+            $state = if ($entry.passed) { 'PASS' } else { 'FAIL' }
+            $codec = if ($null -eq $entry.ac3MarkerPresent) { 'not asserted' } elseif ($entry.ac3MarkerPresent) { 'found' } else { 'not found in first 512 KiB' }
+            $count = @($entry.checks).Count
+            "| $($entry.label) | $state | $count | $codec |" >> $env:GITHUB_STEP_SUMMARY
+            Write-Host "$state — $($entry.label), $count checks; audio marker: $codec"
+            foreach ($check in $entry.checks) {
+              Write-Host "  $($check.test): HTTP $($check.status), bytes=$($check.bytes)$($check.received)"
+            }
+            if ($entry.error) { Write-Warning $entry.error }
+          }
 
       - name: Upload bounded diagnostic report even if the torrent is unavailable
         if: always()

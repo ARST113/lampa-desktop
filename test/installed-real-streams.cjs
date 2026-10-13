@@ -73,7 +73,8 @@ const getState = [
   "const v = raw?.jquery ? raw[0] : raw?.tagName === 'VIDEO' ? raw : document.querySelector('video');",
   "const q = v?.getVideoPlaybackQuality?.();",
   "return {lampa:!!window.Lampa, playerApi:typeof window.Lampa?.Player?.play,",
-  "shell:!!document.querySelector('#app .head'),video:!!v, count:document.querySelectorAll('video').length,",
+  "shell:!!document.querySelector('#app .head'),languageChoice:!!document.querySelector('body > .lang .lang__selector-item[data-code]'),",
+  "url:location.href,bodyLength:document.body?.innerText?.length || 0,video:!!v,count:document.querySelectorAll('video').length,",
   "readyState:v?.readyState ?? null,networkState:v?.networkState ?? null,",
   "src:(v?.currentSrc || v?.src || '').split('?')[0],",
   "error:v?.error ? {code:v.error.code,message:v.error.message} : null,",
@@ -124,11 +125,27 @@ async function scenario(target, index) {
         if (tab) {
           state = await evaluate(tab, getState);
           if (state.playerApi === "function" && state.shell) break;
+          if (state.languageChoice) {
+            console.log("FIRST-LAUNCH-LANGUAGE", JSON.stringify({
+              url: state.url, shell: state.shell, playerApi: state.playerApi,
+            }));
+            const selected = await evaluate(tab, [
+              "(() => {const ru=document.querySelector('body > .lang .lang__selector-item[data-code=ru]');",
+              "const any=document.querySelector('body > .lang .lang__selector-item[data-code]');",
+              "const element=ru || any; if(element){element.click();return true;}return false;})()",
+            ].join(""));
+            if (selected) await delay(1200);
+          }
         }
       } catch {}
       await delay(650);
     }
     result.boot = state;
+    console.log("BOOT_DIAGNOSTICS", JSON.stringify({
+      url: state?.url, shell: state?.shell, languageChoice: state?.languageChoice,
+      playerApi: state?.playerApi, lampa: state?.lampa,
+      bodyLength: state?.bodyLength, lastLog: redact(logs.slice(-1200)),
+    }));
     if (!state?.shell || state.playerApi !== "function")
       throw Error("Live Lampa UI or native Player API did not initialize");
 

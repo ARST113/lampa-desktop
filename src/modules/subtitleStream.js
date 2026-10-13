@@ -14,7 +14,11 @@ class SubtitleStream {
   constructor() {
     this.media = new Map();
     this.serial = 0;
-    this.fetchRange = fetch;
+    // Set by PlayerOptionsInterceptor after Electron networking initializes.
+    // Never fall back to Node's bundled Undici in the main process.
+    this.fetchRange = async () => {
+      throw new Error("Subtitle byte-range transport is not initialized");
+    };
   }
   get(url) {
     let media = this.media.get(url);

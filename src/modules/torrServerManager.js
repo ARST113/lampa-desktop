@@ -1,5 +1,5 @@
 // modules/torrServerManager.js
-const { app } = require("electron");
+const { app, net } = require("electron");
 const { spawn } = require("child_process");
 const path = require("node:path");
 const fs = require("node:fs").promises;
@@ -117,9 +117,13 @@ class TorrServerManager {
   // Получение последней версии с GitHub
   async getLatestRelease() {
     try {
-      const response = await fetch(GITHUB_API, {
+      const response = await net.fetch(GITHUB_API, {
         headers: { "User-Agent": "Electron-App" },
       });
+      if (!response.ok) {
+        await response.body?.cancel();
+        throw new Error(`GitHub API HTTP ${response.status}`);
+      }
       const data = await response.json();
 
       if (!data.tag_name) {
@@ -308,17 +312,19 @@ class TorrServerManager {
       const baseUrl = `http://localhost:${port}`;
 
       // Проверяем /gst/echo
-      const response = await fetch(`${baseUrl}/gst/echo`, {
+      const response = await net.fetch(`${baseUrl}/gst/echo`, {
         signal: AbortSignal.timeout(3000),
       });
 
       if (response.status === 404) {
+        await response.body?.cancel();
         // Если /gst/echo возвращает 404, значит поддержки GST нет
         this.gstSupport = false;
         return { supported: false };
       }
 
       if (!response.ok) {
+        await response.body?.cancel();
         throw new Error(`HTTP ${response.status}`);
       }
 
@@ -346,11 +352,12 @@ class TorrServerManager {
   // Получение версии TorrServer
   async getVersion(port = 8090) {
     try {
-      const response = await fetch(`http://localhost:${port}/echo`, {
+      const response = await net.fetch(`http://localhost:${port}/echo`, {
         signal: AbortSignal.timeout(3000),
       });
 
       if (!response.ok) {
+        await response.body?.cancel();
         throw new Error(`HTTP ${response.status}`);
       }
 

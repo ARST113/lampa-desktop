@@ -35,7 +35,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          previous="$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/v1.6.0-ac3.21")"
+          previous="$(gh api "repos/$GITHUB_REPOSITORY/releases/409884645")"
           printf '%s' "$previous" | jq -e '.id == 409884645 and .tag_name == "v1.6.0-ac3.21"' >/dev/null
           if [[ "$(printf '%s' "$previous" | jq -r '.draft')" == true ]]; then
             echo "v1.6.0-ac3.21 already archived as draft."

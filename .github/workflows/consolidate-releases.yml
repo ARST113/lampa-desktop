@@ -180,6 +180,10 @@ jobs:
           MARKDOWN
 
           sed -i -e "s/__TAG__/$TARGET_TAG/g" -e "s/__VERSION__/$version/g" platform-index.md
+          # This manual test applies only to ac3.23; never carry the claim into later releases.
+          if [[ "$TARGET_TAG" == "v1.6.0-ac3.23" ]]; then
+            sed -i '/### Windows x64 — 1\.6\.0-ac3\.23/a\\\n**Ручная проверка:** пять видеофайлов воспроизведены без аварийного завершения приложения.' platform-index.md
+          fi
           cat platform-index.md clean-release-notes.md > unified-release-notes.md
           gh release edit "$TARGET_TAG" --repo "$GITHUB_REPOSITORY" \
             --title "Lampa Desktop $version — Windows / macOS / Linux" \

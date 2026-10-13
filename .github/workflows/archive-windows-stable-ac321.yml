@@ -1,0 +1,55 @@
+name: Archive older Windows stable release
+
+on:
+  push:
+    branches:
+      - maintenance/archive-superseded-windows-release
+    paths:
+      - .github/workflows/archive-windows-stable-ac321.yml
+
+permissions:
+  contents: write
+
+jobs:
+  archive:
+    if: github.repository == 'ARST113/lampa-desktop'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Confirm ac3.22 is complete and is the latest stable Windows release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          current="$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/v1.6.0-ac3.22")"
+          printf '%s' "$current" | jq -e '
+            .draft == false and .prerelease == false and
+            (any(.assets[]; .name == "lampa-x64-1.6.0-ac3.22.exe")) and
+            (any(.assets[]; .name == "lampa-portable-x64-1.6.0-ac3.22.exe")) and
+            (any(.assets[]; .name == "lampa-portable-zip-x64-1.6.0-ac3.22.zip"))
+          ' > /dev/null
+          echo "Confirmed: v1.6.0-ac3.22 is stable and includes all Windows packages."
+      - name: Move superseded ac3.21 release to an archival draft (preserve all assets)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          previous="$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/v1.6.0-ac3.21")"
+          printf '%s' "$previous" | jq -e '.id == 409884645 and .tag_name == "v1.6.0-ac3.21"' >/dev/null
+          if [[ "$(printf '%s' "$previous" | jq -r '.draft')" == true ]]; then
+            echo "v1.6.0-ac3.21 already archived as draft."
+          else
+            gh api --method PATCH "repos/$GITHUB_REPOSITORY/releases/409884645" -F draft=true \
+              --jq '{id: .id, tag: .tag_name, draft: .draft, prerelease: .prerelease, assets: (.assets | length)}'
+          fi
+      - name: Verify only ac3.22 is published as stable among ac3.21/ac3.22
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          now="$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/v1.6.0-ac3.21")"
+          latest="$(gh api "repos/$GITHUB_REPOSITORY/releases/latest")"
+          echo "$now" | jq -e '.draft == true' >/dev/null
+          echo "$latest" | jq -e '.tag_name == "v1.6.0-ac3.22"' >/dev/null
+          echo "PASS: ac3.21 is draft, ac3.22 is public latest, and macOS/Linux assets untouched."

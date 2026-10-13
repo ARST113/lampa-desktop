@@ -105,6 +105,9 @@ jobs:
           zip_hash="$(unzip -p "dist/$prefix.zip" Lampa.app/Contents/Resources/app.asar | shasum -a 256 | cut -d ' ' -f 1)"
           app_hash="$(shasum -a 256 "dist/${{ matrix.app_dir }}/Lampa.app/Contents/Resources/app.asar" | cut -d ' ' -f 1)"
           test "$zip_hash" = "$app_hash"
+          zip_app="$PWD/.cache/verified-macos-$arch-zip"
+          ditto -x -k "dist/$prefix.zip" "$zip_app"
+          node scripts/verify-macos-package.cjs verify "$arch" "$zip_app/Lampa.app"
           mountpoint="$(mktemp -d)"
           hdiutil attach -nobrowse -readonly -mountpoint "$mountpoint" "dist/$prefix.dmg"
           trap 'hdiutil detach "$mountpoint" >/dev/null 2>&1 || true' EXIT
@@ -133,4 +136,4 @@ jobs:
         run: |
           tag="${{ inputs.release_tag }}"
           gh release view "$tag" --repo ARST113/lampa-desktop
-          gh release upload "$tag" --repo ARST113/lampa-desktop dist/*.dmg dist/*.zip dist/SHASUMS256-macos-*.txt
+          gh release upload "$tag" --repo ARST113/lampa-desktop --clobber dist/*.dmg dist/*.zip dist/SHASUMS256-macos-*.txt

@@ -41,6 +41,7 @@ try {
   });
   check("Decode DTS 5.1 to PCM", () => { ff(["-i",surround,"-map","0:a:0","-c:a","pcm_s16le","-f","null","-"]); });
   check("Decode DTS 2.0 to PCM", () => { ff(["-i",stereo,"-map","0:a:0","-c:a","pcm_s16le","-f","null","-"]); });
+  check("Generate baseline WAV to discriminate codec failure from CI audio device failure", () => { ff(["-i",stereo,"-map","0:a:0","-c:a","pcm_s16le",file("reference.wav")]); });
   check("Create Matroska with video plus two DTS audio tracks", () => {
     ff(["-f","lavfi","-i","testsrc2=size=320x180:rate=12:duration=4","-i",surround,"-i",stereo,"-map","0:v:0","-map","1:a:0","-map","2:a:0","-c:v","libvpx","-deadline","realtime","-cpu-used","8","-b:v","200k","-c:a","copy","-shortest",input]);
     const streams = probe(input), audio = streams.filter(s => s.codec_type === "audio");

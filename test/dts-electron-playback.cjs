@@ -58,6 +58,8 @@ app.whenReady().then(async () => {
     }
     return { time:video.currentTime, duration:video.duration, readyState:video.readyState, error:video.error?.message||null, audioContextState:context.state, maxRms };
   })()`);
+  console.log("Electron AC3 5.1 initial:", JSON.stringify(result));
+  fs.writeFileSync(path.join(output, "electron-playback.json"), JSON.stringify(result, null, 2));
   const controls = await window.webContents.executeJavaScript(`(async()=>{
     async function measure(url){
       const media = document.createElement("audio");
@@ -77,7 +79,7 @@ app.whenReady().then(async () => {
       const result={time:media.currentTime,error:media.error?.message||null,maxRms,audioContextState:context.state};
       media.pause();await context.close();media.remove();return result;
     }
-    return {ac3Stereo:await measure("/converted20.mkv"),referenceWav:await measure("/reference.wav")};
+    return {referenceWav:await measure("/reference.wav"),ac3Stereo:await measure("/converted20.mkv")};
   })()`);
   result.controls=controls;
     fs.writeFileSync(path.join(output, "electron-playback.json"), JSON.stringify(result, null, 2));

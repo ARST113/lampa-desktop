@@ -31,6 +31,13 @@ jobs:
         shell: pwsh
         run: node test/dts-windows-smoke.cjs
 
+      - name: Optional live DTS test against private TorrServer link
+        shell: pwsh
+        env:
+          LIVE_DTS_URL: ${{ secrets.LAMPA_TEST_TORRSERVER_URL }}
+        run: node test/dts-live-torrserver.cjs
+        continue-on-error: true
+
       - name: Download pinned custom Electron with AC3/EAC3
         shell: pwsh
         run: ./scripts/prepare-electron.ps1
@@ -66,3 +73,4 @@ jobs:
             .cache/dts-windows-test/electron-wav-baseline-error.txt
             .cache/dts-windows-test/electron-ac3-stereo.json
             .cache/dts-windows-test/electron-ac3-stereo-error.txt
+            .cache/dts-windows-test/real-torrserver-dts.json

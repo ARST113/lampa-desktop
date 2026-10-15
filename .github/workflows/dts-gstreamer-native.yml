@@ -1,0 +1,70 @@
+name: Native GStreamer DTS decoder
+
+on:
+  push:
+    branches: ['experiment/native-gst-dts-*']
+  pull_request:
+    paths: ['src/native/**', 'binding.gyp', 'test/dts-gst-native.cjs', '.github/workflows/dts-gstreamer-native.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  native-linux:
+    name: DTS native - ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-24.04, ubuntu-24.04-arm]
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Install GStreamer and native build dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends \
+            libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev \
+            gstreamer1.0-tools gstreamer1.0-plugins-base \
+            gstreamer1.0-plugins-good gstreamer1.0-plugins-bad \
+            gstreamer1.0-libav ffmpeg pkg-config build-essential
+          gst-inspect-1.0 matroskademux
+          gst-inspect-1.0 avdec_dca
+      - name: Compile native Node-API GStreamer module
+        run: npx --yes node-gyp@11 rebuild
+      - name: Generate a genuine DTS in MKV test sample
+        run: |
+          mkdir -p test/fixtures
+          ffmpeg -hide_banner -loglevel error \
+            -f lavfi -i 'sine=frequency=440:duration=3:sample_rate=48000' \
+            -c:a dca -strict -2 -b:a 768k -y test/fixtures/gst-dts.mkv
+          ffprobe -v error -select_streams a -show_entries stream=codec_name \
+            -of default=nw=1 test/fixtures/gst-dts.mkv | grep 'codec_name=dts'
+      - name: Decode DTS to PCM and check cleanup
+        run: node test/dts-gst-native.cjs
+      - name: Generate DTS 5.1 fixture
+        run: |
+          ffmpeg -hide_banner -loglevel error \
+            -f lavfi -i 'sine=frequency=440:duration=3:sample_rate=48000' \
+            -af 'pan=5.1|FL=c0|FR=c0|FC=c0|LFE=c0|BL=c0|BR=c0' \
+            -c:a dca -strict -2 -b:a 1536k -y test/fixtures/gst-dts-51.mkv
+          ffprobe -v error -select_streams a \
+            -show_entries stream=codec_name,channels \
+            -of default=nw=1 test/fixtures/gst-dts-51.mkv | grep 'channels=6'
+      - name: Decode 5.1-channel DTS to six-channel PCM
+        run: node test/dts-gst-native.cjs test/fixtures/gst-dts-51.mkv 6
+      - name: Reject disallowed source types
+        run: |
+          node - <<'NODE'
+          const gst=require('./build/Release/lampa_dts_gst.node');
+          for(const url of ['javascript:alert(1)','file:///etc/passwd','badrelative.mkv']){
+            let rejected=false;
+            try{gst.start(url,0,()=>{});}catch{rejected=true;}
+            if(!rejected)throw Error('Accepted unsafe source');
+          }
+          console.log('Unsafe sources rejected');
+          NODE

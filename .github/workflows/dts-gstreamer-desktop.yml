@@ -1,0 +1,125 @@
+name: Native GStreamer DTS Windows macOS
+
+on:
+  push:
+    branches: ['experiment/native-gst-dts-*']
+    paths:
+      - 'src/native/**'
+      - 'test/dts-gst-native.cjs'
+      - 'binding.gyp'
+      - '.github/workflows/dts-gstreamer-desktop.yml'
+  pull_request:
+    paths:
+      - 'src/native/**'
+      - 'test/dts-gst-native.cjs'
+      - 'binding.gyp'
+      - '.github/workflows/dts-gstreamer-desktop.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows-native:
+    name: Native DTS / Windows x64 (MSYS2 UCRT64)
+    runs-on: windows-2025
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install native Windows GStreamer, DTS codec and Node headers
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: true
+          install: >-
+            mingw-w64-ucrt-x86_64-gcc
+            mingw-w64-ucrt-x86_64-gstreamer
+            mingw-w64-ucrt-x86_64-gst-plugins-base
+            mingw-w64-ucrt-x86_64-gst-plugins-good
+            mingw-w64-ucrt-x86_64-gst-plugins-bad
+            mingw-w64-ucrt-x86_64-gst-libav
+            mingw-w64-ucrt-x86_64-nodejs
+            mingw-w64-ucrt-x86_64-pkgconf
+            mingw-w64-ucrt-x86_64-ffmpeg
+      - name: Compile real Windows native addon and verify DTS decoder
+        shell: msys2 {0}
+        run: |
+          set -euo pipefail
+          command -v g++
+          command -v node
+          gst-inspect-1.0 matroskademux
+          gst-inspect-1.0 avdec_dca
+          test -f /ucrt64/lib/libnode.dll.a
+          mkdir -p build/Release
+          g++ -std=c++17 -O2 -shared \
+            -I/ucrt64/include/node \
+            $(pkg-config --cflags gstreamer-1.0 gstreamer-app-1.0) \
+            src/native/dts-gst.cc \
+            -o build/Release/lampa_dts_gst.node \
+            $(pkg-config --libs gstreamer-1.0 gstreamer-app-1.0) \
+            -L/ucrt64/lib -lnode
+          ls -lh build/Release/lampa_dts_gst.node
+      - name: Generate real DTS stereo and DTS 5.1 Matroska fixtures
+        shell: msys2 {0}
+        run: |
+          set -euo pipefail
+          mkdir -p test/fixtures
+          ffmpeg -hide_banner -loglevel error -f lavfi \
+            -i 'sine=frequency=440:duration=3:sample_rate=48000' \
+            -c:a dca -strict -2 -b:a 768k -y test/fixtures/gst-dts.mkv
+          ffmpeg -hide_banner -loglevel error -f lavfi \
+            -i 'sine=frequency=440:duration=3:sample_rate=48000' \
+            -af 'pan=5.1|FL=c0|FR=c0|FC=c0|LFE=c0|BL=c0|BR=c0' \
+            -c:a dca -strict -2 -b:a 1536k -y test/fixtures/gst-dts-51.mkv
+          ffprobe -v error -select_streams a -show_entries stream=codec_name,channels \
+            -of default=nw=1 test/fixtures/gst-dts-51.mkv | grep 'channels=6'
+      - name: Decode on Windows (DTS stereo and 5.1)
+        shell: msys2 {0}
+        run: |
+          set -euo pipefail
+          node test/dts-gst-native.cjs test/fixtures/gst-dts.mkv 2
+          node test/dts-gst-native.cjs test/fixtures/gst-dts-51.mkv 6
+
+  macos-native:
+    name: Native DTS / ${{ matrix.label }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-15-intel
+            label: macOS Intel x64
+          - runner: macos-15
+            label: macOS Apple Silicon arm64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Install native GStreamer, DTS plugins, and FFmpeg
+        run: |
+          export HOMEBREW_NO_AUTO_UPDATE=1
+          brew install gstreamer pkgconf
+          if ! command -v ffmpeg >/dev/null; then brew install ffmpeg; fi
+          gst-inspect-1.0 matroskademux
+          gst-inspect-1.0 avdec_dca
+          pkg-config --modversion gstreamer-1.0 gstreamer-app-1.0
+      - name: Compile native Node-API module for host architecture
+        run: npx --yes node-gyp@11 rebuild
+      - name: Generate DTS stereo and DTS 5.1 Matroska fixtures
+        run: |
+          mkdir -p test/fixtures
+          ffmpeg -hide_banner -loglevel error -f lavfi \
+            -i 'sine=frequency=440:duration=3:sample_rate=48000' \
+            -c:a dca -strict -2 -b:a 768k -y test/fixtures/gst-dts.mkv
+          ffmpeg -hide_banner -loglevel error -f lavfi \
+            -i 'sine=frequency=440:duration=3:sample_rate=48000' \
+            -af 'pan=5.1|FL=c0|FR=c0|FC=c0|LFE=c0|BL=c0|BR=c0' \
+            -c:a dca -strict -2 -b:a 1536k -y test/fixtures/gst-dts-51.mkv
+          ffprobe -v error -select_streams a -show_entries stream=codec_name,channels \
+            -of default=nw=1 test/fixtures/gst-dts-51.mkv
+      - name: Verify native DTS stereo and six-channel PCM
+        run: |
+          node test/dts-gst-native.cjs test/fixtures/gst-dts.mkv 2
+          node test/dts-gst-native.cjs test/fixtures/gst-dts-51.mkv 6

@@ -1,0 +1,1 @@
+{"targets":[{"target_name":"lampa_dts_gst","sources":["src/native/dts-gst.cc"],"cflags_cc":["-std=c++17","<!@(pkg-config --cflags gstreamer-1.0 gstreamer-app-1.0)"],"libraries":["<!@(pkg-config --libs gstreamer-1.0 gstreamer-app-1.0)"]}]}

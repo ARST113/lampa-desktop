@@ -19,7 +19,7 @@ const server = http.createServer((req, res) => {
     res.end('<!doctype html><html><body><video id="v" preload="auto" src="/converted51.mkv"></video></body></html>');
     return;
   }
-  const match = /bytes=(\\d+)-(\\d*)/.exec(req.headers.range || "");
+  const match = /bytes=(\d+)-(\d*)/.exec(req.headers.range || "");
   let start = match ? Number(match[1]) : 0;
   let end = match && match[2] ? Math.min(Number(match[2]), media.length - 1) : media.length - 1;
   if (start >= media.length || end < start) { res.writeHead(416); res.end(); return; }

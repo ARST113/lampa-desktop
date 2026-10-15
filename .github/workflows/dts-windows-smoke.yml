@@ -1,0 +1,76 @@
+name: Windows DTS audio smoke
+
+on:
+  pull_request:
+    paths:
+      - "test/dts-*.cjs"
+      - ".github/workflows/dts-windows-smoke.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  dts-windows-smoke:
+    runs-on: windows-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout test branch
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Download verified FFmpeg and FFprobe used by Lampa
+        shell: pwsh
+        run: ./scripts/prepare-subtitle-tools.ps1
+
+      - name: Real DTS decoding, stereo/5.1, track selection, stream-copy, seek and HLS checks
+        shell: pwsh
+        run: node test/dts-windows-smoke.cjs
+
+      - name: Optional live DTS test against private TorrServer link
+        shell: pwsh
+        env:
+          LIVE_DTS_URL: ${{ secrets.LAMPA_TEST_TORRSERVER_URL }}
+        run: node test/dts-live-torrserver.cjs
+        continue-on-error: true
+
+      - name: Download pinned custom Electron with AC3/EAC3
+        shell: pwsh
+        run: ./scripts/prepare-electron.ps1
+
+      - name: Chromium playback smoke test with nonzero decoded AC3 audio
+        shell: pwsh
+        run: ./.cache/electron-ac3-eac3/electron.exe test/dts-electron-playback.cjs
+        continue-on-error: true
+
+      - name: Independent WAV audio output baseline in Electron
+        shell: pwsh
+        run: ./.cache/electron-ac3-eac3/electron.exe test/dts-electron-wav-baseline.cjs
+        continue-on-error: true
+
+      - name: Separate stereo AC3 playback control
+        shell: pwsh
+        env:
+          MEDIA_FIXTURE: converted20.mkv
+        run: ./.cache/electron-ac3-eac3/electron.exe test/dts-electron-wav-baseline.cjs
+        continue-on-error: true
+
+      - name: Preserve detailed test evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-dts-audio-test-results
+          if-no-files-found: warn
+          path: |
+            .cache/dts-windows-test/result.json
+            .cache/dts-windows-test/electron-playback.json
+            .cache/dts-windows-test/electron-playback-error.txt
+            .cache/dts-windows-test/electron-wav-baseline.json
+            .cache/dts-windows-test/electron-wav-baseline-error.txt
+            .cache/dts-windows-test/electron-ac3-stereo.json
+            .cache/dts-windows-test/electron-ac3-stereo-error.txt
+            .cache/dts-windows-test/real-torrserver-dts.json

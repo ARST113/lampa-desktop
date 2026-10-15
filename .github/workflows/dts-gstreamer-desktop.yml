@@ -63,7 +63,7 @@ jobs:
           }
       - name: Build native Node-API module with MSVC
         shell: pwsh
-        run: npx --yes node-gyp@11 rebuild -- -Dgst_root=C:/gstreamer/1.0/msvc_x86_64
+        run: npx --yes node-gyp@11 rebuild
       - name: Install fixture generator
         shell: pwsh
         run: |
@@ -87,7 +87,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'DTS 5.1 test failed' }
 
   macos-native:
-    name: Native DTS / \${{ matrix.label }}
+    name: Native DTS / ${{ matrix.label }}
     strategy:
       fail-fast: false
       matrix:
@@ -96,7 +96,7 @@ jobs:
             label: macOS Intel x64
           - runner: macos-15
             label: macOS Apple Silicon arm64
-    runs-on: \${{ matrix.runner }}
+    runs-on: ${{ matrix.runner }}
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4

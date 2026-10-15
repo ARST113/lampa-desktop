@@ -18,6 +18,6 @@ Licenses of the GStreamer plugins, particularly any libdca/GPL codecs, must be r
 
 An additional GitHub Actions workflow runs the same real DTS stereo/5.1 native decoding tests on Windows x64 (MSVC/GStreamer 1.26.11), macOS x64 and macOS arm64. It does not recompile Electron.
 
-The Windows job uses official GStreamer MSVC runtime/development installers with SHA256 verification. macOS jobs use Homebrew packages and compile for the local runner architecture. These jobs validate a native Node-API decoder against the host Node runtime, **not yet packaging inside Electron**.
+The Windows job builds a genuine Windows x64 Node-API binary using the MSYS2 UCRT64 GStreamer packages and MSYS2 Node.js (the upstream MSVC MSI download was unreliable in GitHub Actions). macOS jobs use Homebrew's merged GStreamer formula and compile for the local Intel or Apple Silicon runner architecture. These tests validate decoding under each job's native Node environment, **not yet loading the module in Electron or bundling it with the app**. The MSYS2 Windows binary links against its own libnode.dll; stock Electron compatibility requires a separate build/load test.
 
 For a production package, bundle the correct native GStreamer libraries/plugins, honor dynamic library search-path and code-signing constraints, build the Node-API module per target, then validate the actual Electron loading and A/V integration.

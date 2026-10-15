@@ -99,8 +99,9 @@ jobs:
           node-version: '24'
       - name: Install native GStreamer, DTS plugins, and FFmpeg
         run: |
-          brew update
-          brew install gstreamer gst-plugins-base gst-plugins-good gst-plugins-bad gst-libav ffmpeg pkgconf
+          export HOMEBREW_NO_AUTO_UPDATE=1
+          brew install gstreamer pkgconf
+          if ! command -v ffmpeg >/dev/null; then brew install ffmpeg; fi
           gst-inspect-1.0 matroskademux
           gst-inspect-1.0 avdec_dca
           pkg-config --modversion gstreamer-1.0 gstreamer-app-1.0

@@ -40,6 +40,11 @@ jobs:
         run: ./.cache/electron-ac3-eac3/electron.exe test/dts-electron-playback.cjs
         continue-on-error: true
 
+      - name: Independent WAV audio output baseline in Electron
+        shell: pwsh
+        run: ./.cache/electron-ac3-eac3/electron.exe test/dts-electron-wav-baseline.cjs
+        continue-on-error: true
+
       - name: Preserve detailed test evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -50,3 +55,5 @@ jobs:
             .cache/dts-windows-test/result.json
             .cache/dts-windows-test/electron-playback.json
             .cache/dts-windows-test/electron-playback-error.txt
+            .cache/dts-windows-test/electron-wav-baseline.json
+            .cache/dts-windows-test/electron-wav-baseline-error.txt

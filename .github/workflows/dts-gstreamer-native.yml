@@ -11,8 +11,13 @@ permissions:
   contents: read
 
 jobs:
-  native-linux-x64:
-    runs-on: ubuntu-24.04
+  native-linux:
+    name: DTS native - ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-24.04, ubuntu-24.04-arm]
+    runs-on: ${{ matrix.runner }}
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4

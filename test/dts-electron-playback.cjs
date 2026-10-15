@@ -8,23 +8,24 @@ const http = require("node:http");
 const assert = require("node:assert/strict");
 const root = path.resolve(__dirname, "..");
 const output = path.join(root, ".cache", "dts-windows-test");
-const media = fs.readFileSync(path.join(output, "converted51.mkv"));
+const mediaFiles = new Map(["converted51.mkv", "converted20.mkv", "reference.wav"].map(name => ["/" + name, fs.readFileSync(path.join(output, name))]));
 app.commandLine.appendSwitch("autoplay-policy", "no-user-gesture-required");
 app.commandLine.appendSwitch("disable-background-timer-throttling");
 fs.mkdirSync(path.join(output, "electron-profile"), { recursive: true });
 app.setPath("userData", path.join(output, "electron-profile"));
 const server = http.createServer((req, res) => {
-  if (req.url !== "/converted51.mkv") {
+  if (!mediaFiles.has(req.url)) {
     res.writeHead(200, { "Content-Type": "text/html" });
     res.end('<!doctype html><html><body><video id="v" preload="auto" src="/converted51.mkv"></video></body></html>');
     return;
   }
+  const media = mediaFiles.get(req.url);
   const match = /bytes=(\d+)-(\d*)/.exec(req.headers.range || "");
   let start = match ? Number(match[1]) : 0;
   let end = match && match[2] ? Math.min(Number(match[2]), media.length - 1) : media.length - 1;
   if (start >= media.length || end < start) { res.writeHead(416); res.end(); return; }
   res.writeHead(match ? 206 : 200, {
-    "Content-Type": "video/x-matroska",
+    "Content-Type": req.url.endsWith(".wav") ? "audio/wav" : "video/x-matroska",
     "Accept-Ranges": "bytes",
     "Content-Length": end - start + 1,
     ...(match ? { "Content-Range": "bytes " + start + "-" + end + "/" + media.length } : {}),
@@ -57,12 +58,45 @@ app.whenReady().then(async () => {
     }
     return { time:video.currentTime, duration:video.duration, readyState:video.readyState, error:video.error?.message||null, audioContextState:context.state, maxRms };
   })()`);
-  fs.writeFileSync(path.join(output, "electron-playback.json"), JSON.stringify(result, null, 2));
+  const controls = await window.webContents.executeJavaScript(`(async()=>{
+    async function measure(url){
+      const media = document.createElement("audio");
+      media.src=url; media.preload="auto"; document.body.appendChild(media);
+      const context=new AudioContext();
+      const source=context.createMediaElementSource(media);
+      const analyser=context.createAnalyser(); analyser.fftSize=2048;
+      source.connect(analyser); analyser.connect(context.destination);
+      await context.resume(); await media.play();
+      let maxRms=0;const started=performance.now();
+      while(performance.now()-started<1400){
+        await new Promise(r=>setTimeout(r,60));
+        const data=new Float32Array(analyser.fftSize); analyser.getFloatTimeDomainData(data);
+        let power=0;for(const value of data)power+=value*value;
+        maxRms=Math.max(maxRms,Math.sqrt(power/data.length));
+      }
+      const result={time:media.currentTime,error:media.error?.message||null,maxRms,audioContextState:context.state};
+      media.pause();await context.close();media.remove();return result;
+    }
+    return {ac3Stereo:await measure("/converted20.mkv"),referenceWav:await measure("/reference.wav")};
+  })()`);
+  result.controls=controls;
+    fs.writeFileSync(path.join(output, "electron-playback.json"), JSON.stringify(result, null, 2));
   console.log("Electron playback:", JSON.stringify(result));
   assert.equal(result.error, null, "Media element has an error");
   assert(result.time > 0.5, "The video did not advance");
-  assert(result.maxRms > 0.001, "No decoded audio samples in Web Audio; possible unsupported AC3 or runner has no sound backend");
-  console.log("PASS: pinned Electron played DTS-to-AC3 MKV with nonzero decoded audio");
+  assert(result.controls.referenceWav.time > 0.5, "Reference WAV did not advance");
+  assert(result.controls.ac3Stereo.time > 0.5, "AC3 stereo video did not advance");
+  if (result.controls.referenceWav.maxRms <= 0.001) {
+    result.audioVerdict = "INCONCLUSIVE: GitHub Windows runner does not expose a measurable baseline PCM WAV audio signal";
+    fs.writeFileSync(path.join(output, "electron-playback.json"), JSON.stringify(result, null, 2));
+    console.log(result.audioVerdict);
+  } else {
+    assert(result.maxRms > 0.001, "AC3 5.1 produced no decoded audio despite a working WAV baseline");
+    assert(result.controls.ac3Stereo.maxRms > 0.001, "AC3 2.0 produced no decoded audio despite a working WAV baseline");
+    result.audioVerdict = "PASS: AC3 5.1 and 2.0 have nonzero decoded audio";
+    fs.writeFileSync(path.join(output, "electron-playback.json"), JSON.stringify(result, null, 2));
+    console.log(result.audioVerdict);
+  }
   clearTimeout(timeout);
   server.close();
   app.exit(0);

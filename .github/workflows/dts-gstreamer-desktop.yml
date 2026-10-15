@@ -1,0 +1,130 @@
+name: Native GStreamer DTS Windows macOS
+
+on:
+  push:
+    branches: ['experiment/native-gst-dts-*']
+    paths:
+      - 'src/native/**'
+      - 'test/dts-gst-native.cjs'
+      - 'binding.gyp'
+      - '.github/workflows/dts-gstreamer-desktop.yml'
+  pull_request:
+    paths:
+      - 'src/native/**'
+      - 'test/dts-gst-native.cjs'
+      - 'binding.gyp'
+      - '.github/workflows/dts-gstreamer-desktop.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows-native:
+    name: Native DTS / Windows x64 (MSVC)
+    runs-on: windows-2025
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Install pinned GStreamer MSVC runtime and development libraries
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $version = '1.26.11'
+          $prefix = "https://gstreamer.freedesktop.org/data/pkg/windows/$version/msvc"
+          foreach ($kind in @('gstreamer-1.0-msvc-x86_64', 'gstreamer-1.0-devel-msvc-x86_64')) {
+            $name = "$kind-$version.msi"
+            $file = Join-Path $env:RUNNER_TEMP $name
+            $checksum = Join-Path $env:RUNNER_TEMP "$name.sha256sum"
+            Invoke-WebRequest -Uri "$prefix/$name" -OutFile $file
+            Invoke-WebRequest -Uri "$prefix/$name.sha256sum" -OutFile $checksum
+            $expected = ((Get-Content $checksum -Raw).Trim() -split '\s+')[0].ToLowerInvariant()
+            $actual = (Get-FileHash $file -Algorithm SHA256).Hash.ToLowerInvariant()
+            if ($expected -ne $actual) { throw "GStreamer SHA256 mismatch: $name" }
+            $install = Start-Process msiexec.exe -ArgumentList "/i \`"$file\`" /qn /norestart" -Wait -PassThru
+            if ($install.ExitCode -ne 0) { throw "GStreamer MSI failed: $name exit $($install.ExitCode)" }
+          }
+          $root = 'C:\gstreamer\1.0\msvc_x86_64'
+          if (!(Test-Path "$root\bin\gst-inspect-1.0.exe")) { throw "GStreamer runtime not installed under $root" }
+          "$root\bin" | Out-File $env:GITHUB_PATH -Append
+          "GST_PLUGIN_SYSTEM_PATH_1_0=$root\lib\gstreamer-1.0" | Out-File $env:GITHUB_ENV -Append
+          "GSTREAMER_ROOT=$root" | Out-File $env:GITHUB_ENV -Append
+      - name: Verify DTS decoder and headers
+        shell: pwsh
+        run: |
+          gst-inspect-1.0 matroskademux
+          gst-inspect-1.0 avdec_dca
+          if (!(Test-Path "$env:GSTREAMER_ROOT\include\gst\gst.h") -and
+              !(Test-Path "$env:GSTREAMER_ROOT\include\gstreamer-1.0\gst\gst.h")) {
+            throw 'Missing GStreamer C headers'
+          }
+      - name: Build native Node-API module with MSVC
+        shell: pwsh
+        run: npx --yes node-gyp@11 rebuild -- -Dgst_root=C:/gstreamer/1.0/msvc_x86_64
+      - name: Install fixture generator
+        shell: pwsh
+        run: |
+          choco install ffmpeg -y --no-progress
+          $ffmpeg = (Get-Command ffmpeg -ErrorAction Stop).Source
+          Write-Host "FFmpeg: $ffmpeg"
+      - name: Create actual DTS stereo and 5.1 MKV files
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Path test/fixtures -Force | Out-Null
+          ffmpeg -hide_banner -loglevel error -f lavfi -i 'sine=frequency=440:duration=3:sample_rate=48000' -c:a dca -strict -2 -b:a 768k -y test/fixtures/gst-dts.mkv
+          ffmpeg -hide_banner -loglevel error -f lavfi -i 'sine=frequency=440:duration=3:sample_rate=48000' -af 'pan=5.1|FL=c0|FR=c0|FC=c0|LFE=c0|BL=c0|BR=c0' -c:a dca -strict -2 -b:a 1536k -y test/fixtures/gst-dts-51.mkv
+          ffprobe -v error -select_streams a -show_entries stream=codec_name,channels -of default=nw=1 test/fixtures/gst-dts-51.mkv
+          if ($LASTEXITCODE -ne 0) { throw 'FFmpeg fixture generation failed' }
+      - name: Validate native Windows DTS stereo + DTS 5.1 PCM
+        shell: pwsh
+        run: |
+          node test/dts-gst-native.cjs test/fixtures/gst-dts.mkv 2
+          if ($LASTEXITCODE -ne 0) { throw 'DTS stereo test failed' }
+          node test/dts-gst-native.cjs test/fixtures/gst-dts-51.mkv 6
+          if ($LASTEXITCODE -ne 0) { throw 'DTS 5.1 test failed' }
+
+  macos-native:
+    name: Native DTS / \${{ matrix.label }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-15-intel
+            label: macOS Intel x64
+          - runner: macos-15
+            label: macOS Apple Silicon arm64
+    runs-on: \${{ matrix.runner }}
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Install native GStreamer, DTS plugins, and FFmpeg
+        run: |
+          brew update
+          brew install gstreamer gst-plugins-base gst-plugins-good gst-plugins-bad gst-libav ffmpeg pkgconf
+          gst-inspect-1.0 matroskademux
+          gst-inspect-1.0 avdec_dca
+          pkg-config --modversion gstreamer-1.0 gstreamer-app-1.0
+      - name: Compile native Node-API module for host architecture
+        run: npx --yes node-gyp@11 rebuild
+      - name: Generate DTS stereo and DTS 5.1 Matroska fixtures
+        run: |
+          mkdir -p test/fixtures
+          ffmpeg -hide_banner -loglevel error -f lavfi \
+            -i 'sine=frequency=440:duration=3:sample_rate=48000' \
+            -c:a dca -strict -2 -b:a 768k -y test/fixtures/gst-dts.mkv
+          ffmpeg -hide_banner -loglevel error -f lavfi \
+            -i 'sine=frequency=440:duration=3:sample_rate=48000' \
+            -af 'pan=5.1|FL=c0|FR=c0|FC=c0|LFE=c0|BL=c0|BR=c0' \
+            -c:a dca -strict -2 -b:a 1536k -y test/fixtures/gst-dts-51.mkv
+          ffprobe -v error -select_streams a -show_entries stream=codec_name,channels \
+            -of default=nw=1 test/fixtures/gst-dts-51.mkv
+      - name: Verify native DTS stereo and six-channel PCM
+        run: |
+          node test/dts-gst-native.cjs test/fixtures/gst-dts.mkv 2
+          node test/dts-gst-native.cjs test/fixtures/gst-dts-51.mkv 6

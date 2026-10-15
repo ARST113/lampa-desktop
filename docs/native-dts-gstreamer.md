@@ -13,3 +13,11 @@ GitHub Actions compiles a real native module and decodes generated DTS stereo an
 Not yet implemented: automatic activation from Lampa.PlayerVideo, audio/video synchronization, HDR/Dolby Vision validation, cross-platform packaging/bundling of GStreamer and codecs, audio track mapping, and reliable seek tests. Existing Lampa playback remains unchanged.
 
 Licenses of the GStreamer plugins, particularly any libdca/GPL codecs, must be reviewed before distribution.
+
+## Windows and macOS CI
+
+An additional GitHub Actions workflow runs the same real DTS stereo/5.1 native decoding tests on Windows x64 (MSVC/GStreamer 1.26.11), macOS x64 and macOS arm64. It does not recompile Electron.
+
+The Windows job uses official GStreamer MSVC runtime/development installers with SHA256 verification. macOS jobs use Homebrew packages and compile for the local runner architecture. These jobs validate a native Node-API decoder against the host Node runtime, **not yet packaging inside Electron**.
+
+For a production package, bundle the correct native GStreamer libraries/plugins, honor dynamic library search-path and code-signing constraints, build the Node-API module per target, then validate the actual Electron loading and A/V integration.

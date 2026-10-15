@@ -57,9 +57,9 @@ napi_value stop(napi_env env,napi_callback_info){
   napi_value val;napi_get_undefined(env,&val);return val;
 }
 napi_value start(napi_env env,napi_callback_info info){
-  size_t argc=3; napi_value argv[3];
+  size_t argc=4; napi_value argv[4];
   napi_get_cb_info(env,info,&argc,argv,nullptr,nullptr);
-  if(argc!=3){error(env,"Expected source, audio ordinal, PCM callback");return nullptr;}
+  if(argc<3){error(env,"Expected source, audio ordinal, PCM callback");return nullptr;}
   size_t n=0;
   if(napi_get_value_string_utf8(env,argv[0],nullptr,0,&n)!=napi_ok||n==0||n>8192){
     error(env,"Invalid stream URL");return nullptr;
@@ -79,6 +79,10 @@ napi_value start(napi_env env,napi_callback_info info){
   file=file||(src.size()>2&&src[1]==':');
 #endif
   if(!http&&!file){error(env,"Only HTTP(S) or absolute file paths permitted");return nullptr;}
+  int32_t channels=2;
+  if(argc==4 && (napi_get_value_int32(env,argv[3],&channels)!=napi_ok || (channels!=2 && channels!=6))){
+    error(env,"PCM channels must be 2 or 6");return nullptr;
+  }
   if(!gst_ready){
     GError* err=nullptr;
     if(!gst_init_check(nullptr,nullptr,&err)){
@@ -99,7 +103,7 @@ napi_value start(napi_env env,napi_callback_info info){
   std::string pipe=std::string(http?"souphttpsrc":"filesrc")+
     " name=src ! matroskademux name=demux demux.audio_"+std::to_string(audio)+
     " ! queue ! audio/x-dts ! decodebin ! audioconvert ! audioresample "
-    " ! audio/x-raw,format=F32LE,rate=48000,channels=2,layout=interleaved "
+    " ! audio/x-raw,format=F32LE,rate=48000,channels="+std::to_string(channels)+",layout=interleaved "
     " ! appsink name=pcm sync=false emit-signals=false max-buffers=16";
   GError* err=nullptr;
   s->pipeline=gst_parse_launch(pipe.c_str(),&err);

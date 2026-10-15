@@ -4,6 +4,7 @@ const fs = require("node:fs");
 const gst = require("../build/Release/lampa_dts_gst.node");
 
 const source = path.resolve(process.argv[2] || "test/fixtures/gst-dts.mkv");
+const channels = Number(process.argv[3] || 2);
 assert.ok(fs.statSync(source).size > 1000);
 
 let bytes = 0;
@@ -21,7 +22,7 @@ const timer = setTimeout(() => {
 gst.start(source, 0, (pcm) => {
   if (done) return;
   assert.ok(Buffer.isBuffer(pcm));
-  assert.equal(pcm.length % 8, 0);
+  assert.equal(pcm.length % (4 * channels), 0);
   bytes += pcm.length;
   parts++;
   for (let i = 0; i < pcm.length; i += 4) {
@@ -39,6 +40,6 @@ gst.start(source, 0, (pcm) => {
     assert.ok(audible > 2, "PCM must be audible");
     assert.ok(stats.bytes >= bytes);
     assert.equal(gst.stats().running, false);
-    console.log(JSON.stringify({ passed: true, bytes, parts, audible }));
+    console.log(JSON.stringify({ passed: true, channels, bytes, parts, audible }));
   }
-});
+}, channels);

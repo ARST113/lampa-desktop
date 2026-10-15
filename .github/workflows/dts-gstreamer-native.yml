@@ -46,6 +46,17 @@ jobs:
             -of default=nw=1 test/fixtures/gst-dts.mkv | grep 'codec_name=dts'
       - name: Decode DTS to PCM and check cleanup
         run: node test/dts-gst-native.cjs
+      - name: Generate DTS 5.1 fixture
+        run: |
+          ffmpeg -hide_banner -loglevel error \
+            -f lavfi -i 'sine=frequency=440:duration=3:sample_rate=48000' \
+            -af 'pan=5.1|FL=c0|FR=c0|FC=c0|LFE=c0|SL=c0|SR=c0' \
+            -c:a dca -strict -2 -b:a 1536k -y test/fixtures/gst-dts-51.mkv
+          ffprobe -v error -select_streams a \
+            -show_entries stream=codec_name,channels \
+            -of default=nw=1 test/fixtures/gst-dts-51.mkv | grep 'channels=6'
+      - name: Decode 5.1-channel DTS to six-channel PCM
+        run: node test/dts-gst-native.cjs test/fixtures/gst-dts-51.mkv 6
       - name: Reject disallowed source types
         run: |
           node - <<'NODE'
